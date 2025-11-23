@@ -1,14 +1,11 @@
-// WatchPlanner Injector (final) — tailored to the jellyfin-mod-watchplanner-section mod
-// - Inserts #watchplanner-root after first child of .homeSectionsContainer
-// - Loads watchplanner-styles.css and watchplanner-client.js
-// - Tries /watchplanner/config, falls back to watchplanner-config.json in the mod web folder, then default
+// WatchPlanner Injector (mods path) — final
 (function watchPlannerInjector(){
   try {
     if (window.__watchPlannerInjected) return console.log('WatchPlanner: already injected');
     window.__watchPlannerInjected = true;
     console.log('WatchPlanner: injector start');
 
-    // EDIT THIS if you rename the folder under your mods directory
+    // base path under the server's /web/mods mapping
     const base = '/web/mods/jellyfin-mod-watchplanner-section';
     const clientJs = base + '/watchplanner-client.js';
     const css = base + '/watchplanner-styles.css';
@@ -51,7 +48,6 @@
         return null;
       }
 
-      // If existing root exists, move it to correct place
       let existingRoot = container.querySelector('#watchplanner-root') || container.querySelector('.watchplanner-root');
       const firstChild = firstElementChildOf(container);
 
@@ -69,7 +65,6 @@
         return existingRoot;
       }
 
-      // Create and insert root
       const root = document.createElement('div');
       root.id = 'watchplanner-root';
       root.className = 'watchplanner-root';
@@ -146,7 +141,6 @@
       }, 250);
     }
 
-    // Load CSS + client and then attach
     addCss(css).then(async ()=>{
       await addScript(clientJs, false);
       waitForContainerAndAttach(20000);

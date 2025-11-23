@@ -1,6 +1,6 @@
 ### README
 
-An basic example on how to mod the home page of Jellyfin, making use of the jellyfin API, and implement using just a javascript injector.
+A basic example on how to mod the home page of Jellyfin, making use of the jellyfin API, and implement using just a javascript injector.
 
 # jellyfin-mod-watchplanner-section
 

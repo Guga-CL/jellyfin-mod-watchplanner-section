@@ -250,13 +250,19 @@ const LOCAL_SAVE_KEY = 'watchplanner.local';
             const img = rs.dataset.img;
             const day = root.__wp_currentDay;
             const list = root.querySelector(`.wp-day-list[data-day="${day}"]`);
+            
             if (list) {
+              // create a single item element and replace existing children (so the day holds exactly one series)
               const el = document.createElement('div');
               el.className = 'wp-item';
               el.dataset.id = id;
               el.innerHTML = `<img src="${img}" alt=""><div class="wp-meta"><div class="wp-name">${name}</div></div>`;
+
+              // remove existing items and insert the new one
+              list.innerHTML = '';
               list.appendChild(el);
             }
+
             closeModal(root);
 
             // build payload and save

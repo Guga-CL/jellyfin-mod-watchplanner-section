@@ -1,4 +1,24 @@
-/* Optional if you prefer external CSS instead of inline styles */
+/* WatchPlanner: centered vertical item, meta below image, truncated title */
+.watchplanner { width: 100%; box-sizing: border-box; }
+.wp-days { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; }
+.wp-day { display: flex; flex-direction: column; align-items: center; padding: 8px; box-sizing: border-box; min-height: 120px; }
+.watchplanner-header-cell { width: 100%; text-align: center; margin-bottom: 6px; cursor: pointer; }
+
+/* item layout: image on top, meta below and centered */
+.wp-day-list { display: flex; flex-direction: column; gap: 6px; width: 100%; align-items: center; }
+.wp-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; }
+.wp-item img { width: 100%; max-width: 120px; height: 160px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto; }
+
+/* meta below image; center and truncate name */
+.wp-meta { width: 100%; text-align: center; margin-top: 4px; }
+.wp-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; font-size: 0.95rem; }
+
+/* modal and results adjustments */
+.wp-modal { width: 520px; max-width: 90vw; }
+.wp-results .wp-result { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; }
+.wp-result img { width: 48px; height: 72px; object-fit: cover; border-radius: 4px; }
+
+
 #watchplanner-root { margin: 12px 0; padding: 10px; background: var(--theme-background); border-radius: 8px; }
 .wp-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .wp-title { font-weight:600; }

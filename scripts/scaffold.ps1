@@ -11,7 +11,8 @@ param(
     [string]$Namespace = "Jellyfin.Plugin.EndpointExposer", 
     [string]$RouteBase = "watchplanner", 
     [string]$ConfigFileName = "watchplanner-config.json", 
-    [string]$TargetFramework = "net9.0"
+    [string]$TargetFramework = "net9.0",
+    [string]$JellyfinVersion = "10.11.3"
 )
 
 Clear-Host
@@ -345,7 +346,7 @@ namespace __NAMESPACE__.Internal
 
 
 
-Remove-Item -Recurse -Force $OutDir\bin, $OutDir\obj, $OutDir\Controllers -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force $OutDir\bin, $OutDir\obj, $OutDir\Controllers\* -ErrorAction SilentlyContinue
 
 # Token replacement
 $csproj = $csprojTemplate -replace "__JELLYFINVERSION__", $JellyfinVersion
@@ -414,6 +415,7 @@ Try {
     $dst = Join-Path $env:LOCALAPPDATA "jellyfin\plugins\$ProjName"
     Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $dst | Out-Null
+    Start-Sleep 2
     Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.dll") -Destination $dst -Force
     Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.deps.json") -Destination $dst -Force
     Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.pdb") -Destination $dst -ErrorAction SilentlyContinue

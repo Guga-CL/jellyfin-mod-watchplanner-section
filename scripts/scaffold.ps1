@@ -43,6 +43,11 @@ $csprojTemplate = @'
         <RepositoryUrl>https://example.org/</RepositoryUrl>
     </PropertyGroup>
 
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug' Or '$(Configuration)' == 'LocalTest'">
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+
 
     <ItemGroup>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />

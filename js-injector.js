@@ -134,7 +134,7 @@
             const root = attachRootAfterFirstChild();
             if (!root) return;
             const cfg = await loadConfig();
-            window.dispatchEvent(new CustomEvent('watchplanner:config', { detail: { config: cfg, root } }));
+            window.dispatchEvent(new CustomEvent('watchplanner:config', { detail: { config: cfg, root, token } }));
             window.dispatchEvent(new CustomEvent('watchplanner:ready', { detail: { root, config: cfg } }));
             console.log('WatchPlanner: dispatched config and ready events (late attach)');
           } else {

@@ -79,7 +79,7 @@ fetch('/update-config', {
     'Authorization': '<your-secret-token>'
   },
   body: JSON.stringify({
-    monday: ["Movie A", "Movie B"],
+    monday: ["Movie A"],
     tuesday: ["Show X"]
   })
 });

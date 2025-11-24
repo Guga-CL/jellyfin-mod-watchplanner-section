@@ -11,6 +11,9 @@
     const css = base + '/watchplanner-styles.css';
     const staticConfig = base + '/watchplanner-config.json';
 
+    // injected at deploy time by the PowerShell script
+    const token = '<REPLACED_AT_DEPLOY>';
+
     function addCss(href){
       if (document.querySelector('link[data-from="watchplanner"][href="'+href+'"]')) return Promise.resolve();
       return new Promise(res=>{
@@ -118,7 +121,7 @@
           const root = attachRootAfterFirstChild();
           if (!root) return;
           const cfg = await loadConfig();
-          window.dispatchEvent(new CustomEvent('watchplanner:config', { detail: { config: cfg, root } }));
+          window.dispatchEvent(new CustomEvent('watchplanner:config', { detail: { config: cfg, root, token } }));
           window.dispatchEvent(new CustomEvent('watchplanner:ready', { detail: { root, config: cfg } }));
           console.log('WatchPlanner: dispatched config and ready events');
           return;

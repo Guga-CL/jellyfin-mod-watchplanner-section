@@ -174,6 +174,20 @@ const LOCAL_SAVE_KEY = 'watchplanner.local';
     return { enabled: true, schedule: {} };
   }
 
+  // Ensure a known token slot exists (so saveConfig can always read it)
+  if (typeof window.__watchplanner_token === 'undefined') {
+    window.__watchplanner_token = null;
+  }
+
+  // Listen for the injector's CustomEvent and store the token when provided
+  window.addEventListener('watchplanner:config', (e) => {
+    if (e?.detail?.token) {
+      window.__watchplanner_token = e.detail.token;
+      console.log('watchplanner: token received');
+    }
+  });
+
+
   function saveLocal(payload) {
     try {
       localStorage.setItem(LOCAL_SAVE_KEY, JSON.stringify(payload));
@@ -186,26 +200,38 @@ const LOCAL_SAVE_KEY = 'watchplanner.local';
   }
 
   async function saveConfig(payload) {
-    // Try POST once, but never throw — always save to localStorage as fallback
+    // Try POST once; always fall back to localStorage
+    const authHeader = window.__watchplanner_token
+      ? { Authorization: window.__watchplanner_token }
+      : {};
+
     try {
-      const r = await fetch('/watchplanner/config', {
+      const r = await fetch('/update-config', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify(payload),
       });
+
       if (r.ok) {
+        // Optional: const info = await r.text(); console.log('server:', info);
         console.log('watchplanner: saved config to server');
         saveLocal(payload);
         return { ok: true, backend: 'server' };
       }
-      console.warn('watchplanner: server save failed (status ' + r.status + '), falling back to localStorage');
+
+      console.warn(
+        `watchplanner: server save failed (status ${r.status}), falling back to localStorage`
+      );
     } catch (e) {
       console.warn('watchplanner: server save error', e, 'falling back to localStorage');
     }
+
     saveLocal(payload);
     return { ok: false, backend: 'local' };
   }
+
+
 
   // --- modal / UI interactions ---
   function openModal(root){

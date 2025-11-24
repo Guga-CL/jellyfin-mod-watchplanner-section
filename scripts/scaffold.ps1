@@ -30,7 +30,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $OutDir "Controllers") | Ou
 $csprojTemplate = @'
 <Project Sdk="Microsoft.NET.Sdk.Web">
     <PropertyGroup>
-        <JellyfinVersion>10.11.3</JellyfinVersion>
+        <JellyfinVersion>__JELLYFINVERSION__</JellyfinVersion>
         <JellyfinNugetVersion>$(JellyfinVersion)</JellyfinNugetVersion>
         <TargetFramework>net9.0</TargetFramework>
         <OutputType>Library</OutputType>
@@ -275,8 +275,11 @@ $metaTemplate = @'
   "Name": "__NAME__",
   "Id": "__ID__",
   "Version": "__VERSION__",
+  "targetAbi": "__JELLYFINVERSION__",
   "Description": "__DESCRIPTION__",
   "Author": "__AUTHOR__",
+  "assemblies": [ "__ASSEMBLY__" ],
+  "autoUpdate": false,
   "Enable": true
 }
 '@
@@ -342,14 +345,21 @@ namespace __NAMESPACE__.Internal
 
 
 
-
+Remove-Item -Recurse -Force $OutDir\bin, $OutDir\obj, $OutDir\Controllers -ErrorAction SilentlyContinue
 
 # Token replacement
 $csproj = $csprojTemplate -replace "__JELLYFINVERSION__", $JellyfinVersion
 $pluginCs = $pluginTemplate -replace "__NAMESPACE__", $Namespace
 $controllerCs = $controllerTemplate -replace "__NAMESPACE__", $Namespace -replace "__ROUTEBASE__", $RouteBase -replace "__CONFIGFILENAME__", $ConfigFileName
 $readme = $readmeTemplate -replace "__PROJ__", $ProjName -replace "__NAMESPACE__", $Namespace -replace "__ROUTEBASE__", $RouteBase -replace "__CONFIGFILENAME__", $ConfigFileName -replace "__JELLYFINVERSION__", $JellyfinVersion
-$metaContent = $metaTemplate -replace "__NAME__", [Regex]::Escape($ProjName) -replace "__ID__", [Regex]::Escape($AssemblyName) -replace "__VERSION__", "1.0.0.0" -replace "__DESCRIPTION__", [Regex]::Escape("Exposes a simple GET/POST JSON config API for plugins and clients.") -replace "__AUTHOR__", [Regex]::Escape($env:USERNAME)
+$metaContent = $metaTemplate `
+  -replace "__NAME__", [Regex]::Escape($ProjName) `
+  -replace "__ID__", [Regex]::Escape($AssemblyName) `
+  -replace "__VERSION__", "1.0.0.0" `
+  -replace "__JELLYFINVERSION__", $JellyfinVersion `
+  -replace "__DESCRIPTION__", [Regex]::Escape("Exposes a simple GET/POST JSON config API for plugins and clients.") `
+  -replace "__AUTHOR__", [Regex]::Escape($env:USERNAME) `
+  -replace "__ASSEMBLY__", "$ProjName.dll"
 
 $probeContent = $probeTemplate -replace "__NAMESPACE__", $Namespace
 # Write files
@@ -363,7 +373,7 @@ Set-Content -Path (Join-Path $OutDir "Controllers\Probe.cs") -Value $probeConten
 
 Write-Output "Files written to $OutDir"
 
-Remove-Item -Recurse -Force $OutDir\bin, $OutDir\obj -ErrorAction SilentlyContinue
+
  
 # Build
 try {
@@ -400,11 +410,14 @@ Write-Host "Scaffold complete. Built artifacts in: $(Join-Path $OutDir 'bin\Rele
 
 Try {
 
-    $src = "$OutDir\bin\Release\$TargetFramework"
+    $src = Join-Path $OutDir "bin\Release\$TargetFramework"
     $dst = Join-Path $env:LOCALAPPDATA "jellyfin\plugins\$ProjName"
     Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $dst | Out-Null
-    Copy-Item -Path (Join-Path $src "*") -Destination $dst -Force
+    Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.dll") -Destination $dst -Force
+    Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.deps.json") -Destination $dst -Force
+    Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.pdb") -Destination $dst -ErrorAction SilentlyContinue
+    Copy-Item -Path (Join-Path $src "Jellyfin.Plugin.EndpointExposer.staticwebassets.endpoints.json") -Destination $dst -ErrorAction SilentlyContinue
     
 } Catch {
     $_

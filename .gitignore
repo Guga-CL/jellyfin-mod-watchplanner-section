@@ -1,0 +1,4 @@
+*.code-workspace
+backups
+config/token.txt
+scripts/scaffold.ps1

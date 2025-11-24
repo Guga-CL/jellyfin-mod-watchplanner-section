@@ -2,7 +2,7 @@
 
 Work in progress, this project is not ready for use.
 
-A basic example on how to mod the home page of Jellyfin, making use of the jellyfin API, and implement using just a javascript injector.
+A basic example on how to mod the home page of Jellyfin, making use of the jellyfin API, and implement using just a javascript injector, Caddy (Reverse Proxy) and ps1 or node scripts.
 
 
 # jellyfin-mod-watchplanner-section

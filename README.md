@@ -1,6 +1,6 @@
-### Updated README
+### README
 
-Work in progress — this project is not ready for general use.
+Work in progress - this project is not ready for general use.
 
 A basic example of modding the Jellyfin home page with a lightweight Watchplanner section, using a JavaScript injector and a secure server-side write path via Caddy + PowerShell.
 

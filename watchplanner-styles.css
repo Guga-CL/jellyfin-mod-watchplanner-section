@@ -1,40 +1,462 @@
-/* WatchPlanner: centered vertical item, meta below image, truncated title */
-.watchplanner { width: 100%; box-sizing: border-box; }
-.wp-days { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; }
-.wp-day { display: flex; flex-direction: column; align-items: center; padding: 8px; box-sizing: border-box; min-height: 120px; }
-.watchplanner-header-cell { width: 100%; text-align: center; margin-bottom: 6px; cursor: pointer; }
+/* Watchplanner styles — targets both #watchplanner-root and .watchplanner-slot */
 
-/* item layout: image on top, meta below and centered */
-.wp-day-list { display: flex; flex-direction: column; gap: 6px; width: 100%; align-items: center; }
-.wp-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; }
-.wp-item img { width: 100%; max-width: 120px; height: 160px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto; }
+/* Base container rules */
+#watchplanner-root,
+.watchplanner-slot {
+  margin: 0px 0;
+  padding: 0px;
+  background: var(--theme-background);
+  border-radius: 8px;
+  box-sizing: border-box;
+  width: 100%;
+}
 
-/* meta below image; center and truncate name */
-.wp-meta { width: 100%; text-align: center; margin-top: 4px; }
-.wp-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; font-size: 0.95rem; }
+/* Grid: 7 columns, responsive */
+#watchplanner-root .wp-days,
+.watchplanner-slot .wp-days {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  align-items: start !important;
+  width: 100% !important;
+}
 
-/* modal and results adjustments */
-.wp-modal { width: 520px; max-width: 90vw; }
-.wp-results .wp-result { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; }
-.wp-result img { width: 48px; height: 72px; object-fit: cover; border-radius: 4px; }
+/* Each day cell: stacked header -> image -> name */
+#watchplanner-root .wp-day,
+.watchplanner-slot .wp-day {
+  background: var(--theme-background-alt);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 120px !important;
+  box-sizing: border-box !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
 
+/* Header cell (clickable) */
+#watchplanner-root .watchplanner-header-cell,
+.watchplanner-slot .watchplanner-header-cell {
+  cursor: pointer !important;
+  user-select: none !important;
+  width: 100% !important;
+  text-align: center !important;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
 
-#watchplanner-root { margin: 12px 0; padding: 10px; background: var(--theme-background); border-radius: 8px; }
-.wp-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-.wp-title { font-weight:600; }
-.wp-days { display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-.wp-day { background: var(--theme-background-alt); border-radius:6px; padding:6px; }
-.watchplanner-header-cell { font-weight:600; margin-bottom:6px; cursor:pointer; }
-.wp-day-list { display:flex; flex-direction:column; gap:6px; min-height: 80px; }
-.wp-item { display:flex; align-items:center; gap:8px; }
-.wp-item img { width:40px; height:60px; object-fit:cover; border-radius:4px; }
+/* Day list and single item */
+#watchplanner-root .wp-day-list,
+.watchplanner-slot .wp-day-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+#watchplanner-root .wp-item,
+.watchplanner-slot .wp-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+#watchplanner-root .wp-item img,
+.watchplanner-slot .wp-item img {
+  width: 100%;
+  max-width: 160px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
+}
+#watchplanner-root .wp-name,
+.watchplanner-slot .wp-name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 138px;
+  text-align: center;
+  font-size: 0.95rem;
+}
 
-.wp-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:9999; }
-.wp-modal { width:480px; background:var(--theme-background); border-radius:8px; box-shadow:0 4px 22px rgba(0,0,0,0.35); }
-.wp-modal-header { display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid var(--theme-text-invert); }
-.wp-modal-body { padding:10px; }
-.wp-search-input { width:100%; padding:8px; border-radius:6px; border:1px solid var(--theme-text-invert); margin-bottom:8px; }
-.wp-results { display:flex; flex-direction:column; gap:6px; max-height:300px; overflow:auto; }
-.wp-result { display:flex; align-items:center; gap:10px; cursor:pointer; padding:6px; border-radius:6px; }
-.wp-result:hover { background:var(--theme-background-alt); }
-.wp-close { background:none; border:none; font-size:18px; cursor:pointer; }
+/* Modal styles (both contexts) */
+#watchplanner-root .wp-modal-overlay,
+.watchplanner-slot .wp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+#watchplanner-root .wp-modal,
+.watchplanner-slot .wp-modal {
+  width: 480px;
+  max-width: 90vw;
+  background: var(--theme-background);
+  border-radius: 8px;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.35);
+}
+#watchplanner-root .wp-modal-header,
+.watchplanner-slot .wp-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--theme-text-invert);
+}
+#watchplanner-root .wp-modal-body,
+.watchplanner-slot .wp-modal-body {
+  padding: 10px;
+}
+#watchplanner-root .wp-search-input,
+.watchplanner-slot .wp-search-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--theme-text-invert);
+  margin-bottom: 8px;
+}
+#watchplanner-root .wp-results,
+.watchplanner-slot .wp-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow: auto;
+}
+#watchplanner-root .wp-result,
+.watchplanner-slot .wp-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+}
+#watchplanner-root .wp-result:hover,
+.watchplanner-slot .wp-result:hover {
+  background: var(--theme-background-alt);
+}
+
+/* Section shim so the wrapper matches Jellyfin spacing and item layout */
+.verticalSection.section0.emby-scroller-container {
+  margin: 0 0 16px 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+/* Title spacing parity */
+.verticalSection .sectionTitleContainer {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+}
+
+/* Items container slot to behave like other items */
+.verticalSection .itemsContainer .watchplanner-slot {
+  display: inline-block;
+  vertical-align: top;
+  width: 100%;
+  max-width: 1380px;
+  box-sizing: border-box;
+  padding: 0px;
+}
+
+/* Hide any leftover internal header inside the slot */
+.watchplanner-slot .wp-header,
+#watchplanner-root .wp-header {
+  display: none !important;
+}
+
+/* Ensure the watchplanner root itself doesn't add extra margins */
+#watchplanner-root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Watchplanner modal improvements - append to watchplanner-styles.css */
+
+/* Modal container (centered, responsive) */
+.wp-modal {
+  display: block;
+  max-width: 720px;
+  width: min(92vw, 720px);
+  box-sizing: border-box;
+  background: var(--theme-background-alt, rgba(18, 18, 18, 0.98));
+  color: var(--theme-text, #ffffff);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  transform-origin: center center;
+  transition: transform 160ms ease, opacity 160ms ease;
+  opacity: 1;
+}
+
+.wp-modal .wp-modal-header,
+.wp-modal .wp-modal-body {
+  background: transparent;
+}
+
+.wp-modal,
+.wp-modal * {
+  color: var(--theme-text, #ffffff) !important;
+}
+
+/* Modal header */
+.wp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+  font-weight: 600;
+}
+
+/* Close button */
+.wp-modal-header .wp-close {
+  background: none;
+  border: none;
+  color: var(--theme-text);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+}
+.wp-modal-header .wp-close:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Modal body */
+.wp-modal-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Search input */
+.wp-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--theme-background-alt);
+  color: var(--theme-text);
+  outline: none;
+  box-sizing: border-box;
+}
+.wp-search-input:focus {
+  border-color: rgba(0, 150, 255, 0.9);
+  box-shadow: 0 0 0 4px rgba(0, 150, 255, 0.06);
+}
+
+/* Results list */
+.wp-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 48vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+/* Result row */
+.wp-result {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.wp-result:hover {
+  background: var(--theme-background-alt);
+  transform: translateY(-2px);
+}
+
+/* Result thumbnail */
+.wp-result img {
+  width: 56px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* Result text block */
+.wp-result > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.wp-result > div > div:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wp-result > div > div:last-child {
+  font-size: 0.85rem;
+  color: var(--secondaryText);
+}
+
+/* Empty / no-results state */
+.wp-results .no-results,
+.wp-results .wp-empty {
+  color: var(--secondaryText);
+  padding: 8px;
+  text-align: center;
+}
+
+/* Make overlay slightly darker on small screens for focus */
+.wp-modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* Responsive tweaks */
+@media (max-width: 520px) {
+  .wp-modal {
+    width: 94vw;
+    border-radius: 8px;
+  }
+  .wp-result img {
+    width: 48px;
+    height: 68px;
+  }
+  .wp-modal-header {
+    padding: 10px;
+  }
+  .wp-modal-body {
+    padding: 10px;
+  }
+}
+
+/* Mobile: make watchplanner behave like Jellyfin horizontal scroller */
+@media (max-width: 720px) {
+  /* Ensure the scroller wrapper allows horizontal scrolling when it contains the slot */
+  .verticalSection.section0.emby-scroller-container .itemsContainer {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+    white-space: nowrap; /* keep inline children on one line */
+    padding-bottom: 8px; /* allow space for touch scroll */
+  }
+
+  /* Make the days row horizontal instead of grid */
+  #watchplanner-root .wp-days,
+  .watchplanner-slot .wp-days {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+    width: auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Each day behaves like a Jellyfin card: fixed width, inline, no wrapping */
+  #watchplanner-root .wp-day,
+  .watchplanner-slot .wp-day {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    flex: 0 0 160px !important; /* card width — tweak to match your theme */
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    vertical-align: top;
+  }
+
+  /* Keep header and name readable inside the narrow card */
+  #watchplanner-root .watchplanner-header-cell,
+  .watchplanner-slot .watchplanner-header-cell {
+    font-size: 0.95rem;
+    padding: 6px 4px;
+    margin-bottom: 6px;
+  }
+  #watchplanner-root .wp-name,
+  .watchplanner-slot .wp-name {
+    max-width: 140px;
+    font-size: 0.9rem;
+  }
+
+  /* Make images fit the card width */
+  #watchplanner-root .wp-item img,
+  .watchplanner-slot .wp-item img {
+    max-width: 140px;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Reduce gaps inside the card so more fits on screen */
+  #watchplanner-root .wp-day-list,
+  .watchplanner-slot .wp-day-list {
+    gap: 6px;
+    padding: 6px 4px;
+  }
+
+  /* Optional: hide the grid gap on the scroller so cards sit flush */
+  #watchplanner-root .wp-days,
+  .watchplanner-slot .wp-days {
+    gap: 8px;
+  }
+}
+
+/* Small tweak for very narrow phones */
+@media (max-width: 420px) {
+  #watchplanner-root .wp-day,
+  .watchplanner-slot .wp-day {
+    flex: 0 0 140px !important;
+    width: 140px !important;
+    min-width: 140px !important;
+  }
+  #watchplanner-root .wp-name,
+  .watchplanner-slot .wp-name {
+    max-width: 120px;
+    font-size: 0.88rem;
+  }
+}
+
+/* Highlight the current weekday header */
+.wp-day.today {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  transform: translateY(-3px);
+}
+.wp-day.today .watchplanner-header-cell {
+  background: linear-gradient(180deg, #007acc22, #007acc11);
+  border-radius: 6px;
+  padding: 0.1em 8px;
+  color: var(--theme-accent, #00a4dc);
+  font-weight: 700;
+}
+
+/* Keep watchplanner section visually below playback overlays */
+.verticalSection.section0.emby-scroller-container.watchplanner-root,
+.watchplanner-slot {
+  z-index: 1 !important;
+  pointer-events: auto;
+}
+
+/* hide the refresh control REMINDER TO REMOVE THE BUTTON LATER IF EVERYTHING IS WORKING SEARCH FOR: wp-controls*/
+.wp-controls,
+.wp-refresh {
+  display: none !important;
+}

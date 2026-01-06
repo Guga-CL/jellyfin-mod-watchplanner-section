@@ -1,346 +1,437 @@
-// client-ui.js - Watchplanner UI with modal live search and per-day selection
-// Requires: js-injector.js created #watchplanner-root and client-api.js exposed as window.WatchplannerAPI
+// client-ui.js - Watchplanner UI (refactored)
+// - Promise-based mount/load API for robust injector integration
+// - Minimal public surface, idempotent init, debug gated
+
 (function () {
     'use strict';
 
-    const LOG = (...a) => { try { console.log('Watchplanner-UI:', ...a); } catch (e) { } };
-    const WARN = (...a) => { try { console.warn('Watchplanner-UI:', ...a); } catch (e) { } };
+    // ---------- Config / Debug ----------
+    const LOG_PREFIX = 'WatchplannerUI:';
+    // Enable debug logs at runtime: window.__watchplanner_debug = true;
+    window.__watchplanner_debug = window.__watchplanner_debug === true; // default false
 
-    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    function log(...args) { try { if (window.__watchplanner_debug) console.log(LOG_PREFIX, ...args); } catch (e) { } }
+    function warn(...args) { try { console.warn(LOG_PREFIX, ...args); } catch (e) { } }
 
-    // --- Helpers ---
-    function getRoot() { return document.getElementById('watchplanner-root'); }
-    function getModContainer() { return document.getElementById('watchplanner-mod') || document.querySelector('.sections.homeSectionsContainer'); }
-    function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-
-    function debounce(fn, wait = 250) {
-        let t;
-        return (...args) => {
-            clearTimeout(t);
-            t = setTimeout(() => fn(...args), wait);
-        };
-    }
-
-    // --- UI render ---
-    function renderUI() {
-        const root = getRoot();
-        if (!root) return null;
-        if (root.dataset.wpUiRendered === '1') return root;
-
-        root.innerHTML = `
-      <div class="wp-ui" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial; padding:8px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <button id="wp-save" type="button" style="padding:6px 10px; border-radius:6px; background:#0b5fff; color:#fff; border:none; cursor:pointer;">Save selection to Watchplanner</button>
-          <span id="wp-status" aria-live="polite" style="font-size:0.95em; color:#666;"></span>
-        </div>
-        <div id="wp-summary" style="margin-top:8px; font-size:0.95em; color:#444;"></div>
-      </div>
-    `;
-
-        root.dataset.wpUiRendered = '1';
-        bindUiHandlers(root);
-        return root;
-    }
-
-    function setStatus(root, text, isError) {
-        const s = root.querySelector('#wp-status');
-        if (!s) return;
-        s.textContent = text;
-        s.style.color = isError ? '#b00' : '#080';
-    }
-
-    function updateSummary(root, schedule) {
-        const summary = root.querySelector('#wp-summary');
-        if (!summary) return;
-        if (!schedule || typeof schedule !== 'object') {
-            summary.textContent = 'No schedule loaded.';
-            return;
+    // ---------- Utilities (use WPUtils when available) ----------
+    const WPUtils = window.WPUtils || {};
+    const el = WPUtils.el || function (tag, attrs = {}, ...children) {
+        const node = document.createElement(tag);
+        for (const k in attrs) {
+            if (!Object.prototype.hasOwnProperty.call(attrs, k)) continue;
+            const v = attrs[k];
+            if (k === 'style' && v && typeof v === 'object') Object.assign(node.style, v);
+            else if (k === 'class') node.className = v;
+            else if (k === 'dataset' && v && typeof v === 'object') for (const d in v) node.dataset[d] = v[d];
+            else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.substring(2), v);
+            else if (k === 'html') node.innerHTML = v;
+            else node.setAttribute(k, String(v));
         }
-        const parts = DAYS.map(d => {
-            const arr = schedule[d] || [];
-            return `${d}: ${arr.length}`;
-        });
-        summary.textContent = parts.join(' · ');
-    }
-
-    // --- Selection parsing and schedule building ---
-    function parseSelectedItems() {
-        const mod = getModContainer() || document;
-        let items = Array.from(mod.querySelectorAll('.wp-item.selected'));
-        if (items.length === 0) items = Array.from(mod.querySelectorAll('.wp-item'));
-        if (items.length === 0) {
-            items = Array.from(mod.querySelectorAll('.item.selected'));
-            if (items.length === 0) items = Array.from(mod.querySelectorAll('.item'));
+        for (const c of children) {
+            if (c == null) continue;
+            if (typeof c === 'string' || typeof c === 'number') node.appendChild(document.createTextNode(String(c)));
+            else node.appendChild(c);
         }
+        return node;
+    };
 
-        return items.map(el => {
-            const id = el.dataset.itemId || el.getAttribute('data-id') || (el.querySelector('a') && el.querySelector('a').href.split('/').pop()) || '';
-            const name = (el.querySelector('.wp-name') && el.querySelector('.wp-name').textContent.trim()) ||
-                (el.querySelector('.name') && el.querySelector('.name').textContent.trim()) ||
-                (el.querySelector('a') && el.querySelector('a').textContent.trim()) || '';
-            const imgEl = el.querySelector('img') || el.querySelector('.thumb img');
-            const img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '') : '';
-            const day = el.dataset.day || el.closest('[data-day]')?.dataset.day || null;
-            return { id, name, img, day };
-        });
-    }
+    const debounce = WPUtils.debounce || function (fn, wait = 250) {
+        let t = null;
+        return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+    };
 
-    function buildScheduleFromItems(items) {
-        const schedule = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
-        items.forEach(it => {
-            const dayKey = (it.day && DAYS.includes(it.day)) ? it.day : 'Mon';
-            schedule[dayKey].push({ id: it.id || '', name: it.name || '', img: it.img || '' });
-        });
-        return schedule;
-    }
+    // ---------- Local state ----------
+    window.STATE = window.STATE || { schedule: { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] } };
 
-    // --- Save flow used by Save button (keeps backward compatibility) ---
-    async function handleSave(root) {
-        setStatus(root, 'Saving...', false);
+    // ---------- Helpers ----------
+    function buildImageUrl(path) {
+        if (!path) return '';
         try {
-            const items = parseSelectedItems();
-            if (!items || items.length === 0) {
-                setStatus(root, 'No selection found', true);
-                return;
+            if (window.WatchplannerAPI && typeof window.WatchplannerAPI.buildImageUrl === 'function') {
+                return window.WatchplannerAPI.buildImageUrl(path);
             }
-            const schedule = buildScheduleFromItems(items);
-
-            if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.save !== 'function') {
-                setStatus(root, 'API not available', true);
-                WARN('WatchplannerAPI.save not found');
-                return;
-            }
-
-            const res = await window.WatchplannerAPI.save(schedule, { makeBackup: true });
-            if (res && res.ok) {
-                setStatus(root, 'Saved ✓', false);
-                LOG('save success', res);
-                updateSummary(root, schedule);
-            } else {
-                const msg = res && (res.text || res.statusText || res.reason) ? (res.text || res.statusText || res.reason) : 'Save failed';
-                setStatus(root, `Failed: ${msg}`, true);
-                WARN('save failed', res);
-            }
-        } catch (e) {
-            setStatus(root, 'Network error', true);
-            WARN('save exception', e);
-        }
+        } catch (e) { /* ignore */ }
+        return (window.location.origin || '') + path;
     }
 
-    // --- Load existing schedule and show summary ---
-    async function loadAndShow(root) {
-        if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.load !== 'function') {
-            setStatus(root, 'API not available', true);
-            return;
-        }
-        setStatus(root, 'Loading...', false);
+    async function ensureWatchplannerCss() {
         try {
-            const res = await window.WatchplannerAPI.load();
-            if (res && res.ok) {
-                const schedule = res.data || {};
-                updateSummary(root, schedule);
-                setStatus(root, 'Loaded', false);
-                LOG('loaded schedule', schedule);
-                // render per-day UI if day containers exist
-                renderDaysFromSchedule(schedule);
-            } else {
-                setStatus(root, 'No config found', false);
-                LOG('load returned', res);
-            }
-        } catch (e) {
-            setStatus(root, 'Load error', true);
-            WARN('load exception', e);
-        }
+            const found = Array.from(document.styleSheets).some(s => s.href && s.href.indexOf('watchplanner-styles.css') !== -1);
+            if (found) return true;
+            const href = (window.WATCHPLANNER_SERVER_BASE && String(window.WATCHPLANNER_SERVER_BASE).length)
+                ? `${String(window.WATCHPLANNER_SERVER_BASE).replace(/\/$/, '')}/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20251218`
+                : '/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20251218';
+            return new Promise((resolve) => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = href;
+                link.onload = () => resolve(true);
+                link.onerror = () => { try { link.remove(); } catch (e) { } resolve(false); };
+                document.head.appendChild(link);
+            });
+        } catch (e) { return false; }
     }
 
-    // Render saved series into day containers if present
-    function renderDaysFromSchedule(schedule) {
-        if (!schedule || typeof schedule !== 'object') return;
-        DAYS.forEach(day => {
-            const dayContainer = document.querySelector(`.watchplanner-day[data-day="${day}"]`);
-            if (!dayContainer) return;
-            const arr = schedule[day] || [];
-            if (!arr.length) {
-                dayContainer.innerHTML = '';
-                return;
-            }
-            const it = arr[0];
-            dayContainer.innerHTML = `
-        <div class="wp-day-thumb" style="text-align:center;">
-          <img src="${escapeHtml(it.img)}" style="width:160px;height:240px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'"/>
-        </div>
-        <div class="wp-name" style="text-align:center;margin-top:6px;font-weight:600;">${escapeHtml(it.name)}</div>
-      `;
+    // ---------- DOM building ----------
+    function findContainer() {
+        const rootEl = document.getElementById('watchplanner-root');
+        const wrapper = rootEl && rootEl.parentElement && rootEl.parentElement.classList && rootEl.parentElement.classList.contains('verticalSection')
+            ? rootEl.parentElement
+            : null;
+        const slot = wrapper ? wrapper.querySelector('.watchplanner-slot') : null;
+        return { rootEl, wrapper, slot, container: slot || rootEl };
+    }
+
+    function buildRootContent() {
+        const { rootEl, slot, container } = findContainer();
+        if (!container) return null;
+        container.innerHTML = '';
+
+        // Controls only when rendering directly into root (no slot)
+        if (!slot) {
+            const controls = el('div', { class: 'wp-controls' },
+                el('button', {
+                    class: 'wp-refresh',
+                    onclick: async () => {
+                        try { await ensureWatchplannerCss(); } catch (e) { /* ignore */ }
+                        if (window.WatchplannerUI && typeof window.WatchplannerUI.loadAndRender === 'function') {
+                            window.WatchplannerUI.loadAndRender();
+                        } else {
+                            loadAndRender();
+                        }
+                    }
+                }, 'Refresh')
+            );
+            container.appendChild(controls);
+        }
+
+        const days = el('div', { class: 'wp-days' });
+        const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        dayKeys.forEach(k => {
+            const header = el('div', { class: 'watchplanner-header-cell' }, k);
+            const dayCell = el('div', { class: 'wp-day', dataset: { day: k } }, header, el('div', { class: 'wp-day-list' }));
+            days.appendChild(dayCell);
         });
-    }
+        container.appendChild(days);
 
-    // --- Modal search and selection flow ---
-    function openSearchModal(day) {
-        if (!day) return;
-        let modal = document.getElementById('wp-search-modal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'wp-search-modal';
-            modal.style = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;background:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.3);max-width:720px;width:90%;';
-            modal.innerHTML = `
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="wp-search-input" placeholder="Search series..." style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;" />
-          <button id="wp-search-close" style="padding:6px 10px;border-radius:6px;">Close</button>
-        </div>
-        <div id="wp-search-results" style="margin-top:8px;max-height:360px;overflow:auto;"></div>
-      `;
-            document.body.appendChild(modal);
-            modal.querySelector('#wp-search-close').addEventListener('click', () => modal.remove());
-        }
+        // placeholder for modal
+        container.appendChild(el('div', { class: 'wp-modal-placeholder' }));
 
-        modal.dataset.targetDay = day;
-        modal.querySelector('#wp-search-input').value = '';
-        modal.querySelector('#wp-search-results').innerHTML = '';
-        modal.querySelector('#wp-search-input').focus();
-
-        const input = modal.querySelector('#wp-search-input');
-        const resultsEl = modal.querySelector('#wp-search-results');
-
-        const doSearch = debounce(async (term) => {
-            if (!term || term.trim().length < 2) {
-                resultsEl.innerHTML = '<div style="color:#666">Type at least 2 characters</div>';
-                return;
-            }
-            resultsEl.innerHTML = '<div style="color:#666">Searching…</div>';
+        // If a slot appears later, hide controls rendered into root
+        if (rootEl) {
             try {
-                const q = encodeURIComponent(term);
-                const url = `/Items?SearchTerm=${q}&IncludeItemTypes=Series&Limit=20&Recursive=true`;
-                const resp = await fetch(url, { credentials: 'same-origin' });
-                const text = await resp.text();
-                let json = null;
-                try { json = text ? JSON.parse(text) : null; } catch (e) { json = null; }
-                const items = (json && json.Items) ? json.Items : [];
-                if (!items.length) {
-                    resultsEl.innerHTML = '<div style="color:#666">No results</div>';
+                if (rootEl.__wp_slot_observer) {
+                    try { rootEl.__wp_slot_observer.disconnect(); } catch (e) { /* ignore */ }
+                    rootEl.__wp_slot_observer = null;
+                }
+                const observer = new MutationObserver(() => {
+                    const { slot: newSlot } = findContainer();
+                    if (newSlot) {
+                        try {
+                            const c = rootEl.querySelector('.wp-controls');
+                            if (c) c.remove();
+                            rootEl.style.display = 'none';
+                        } catch (e) { /* ignore */ }
+                        try { observer.disconnect(); } catch (e) { /* ignore */ }
+                        rootEl.__wp_slot_observer = null;
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                rootEl.__wp_slot_observer = observer;
+            } catch (e) { /* ignore */ }
+        }
+
+        return container;
+    }
+
+    // ---------- Delegated clicks ----------
+    function installDelegatedClicks() {
+        const { container } = findContainer();
+        if (!container) return;
+        if (container.__wp_delegation_installed) return;
+
+        function tryOpen(dayKey, existing) {
+            try {
+                if (window.WPModal && typeof window.WPModal.openModal === 'function') {
+                    window.WPModal.openModal(dayKey, existing);
+                    return true;
+                }
+                // poll briefly if not ready
+                let attempts = 0;
+                const id = setInterval(() => {
+                    attempts++;
+                    if (window.WPModal && typeof window.WPModal.openModal === 'function') {
+                        clearInterval(id);
+                        try { window.WPModal.openModal(dayKey, existing); } catch (e) { /* ignore */ }
+                    } else if (attempts > 20) {
+                        clearInterval(id);
+                    }
+                }, 100);
+            } catch (e) { /* ignore */ }
+            return false;
+        }
+
+        const handler = (ev) => {
+            try {
+                const header = ev.target.closest && ev.target.closest('.watchplanner-header-cell');
+                if (header) {
+                    const dayKey = header.textContent && header.textContent.trim();
+                    const existing = (window.STATE && window.STATE.schedule && window.STATE.schedule[dayKey] && window.STATE.schedule[dayKey][0]) ? window.STATE.schedule[dayKey][0] : null;
+                    tryOpen(dayKey, existing);
+                    ev.stopPropagation();
+                    ev.preventDefault();
                     return;
                 }
-                resultsEl.innerHTML = items.map(it => {
-                    const thumb = it.PrimaryImageTag ? `/Items/${it.Id}/Images/Primary?maxWidth=160` : '';
-                    const title = escapeHtml(it.Name || it.SeriesName || it.OriginalTitle || 'Unknown');
-                    return `<div class="wp-search-item" data-id="${it.Id}" style="display:flex;gap:8px;padding:6px;cursor:pointer;border-bottom:1px solid #eee;">
-            <img src="${thumb}" style="width:64px;height:90px;object-fit:cover;border-radius:4px;" onerror="this.style.display='none'"/>
-            <div style="flex:1">
-              <div style="font-weight:600">${title}</div>
-              <div style="font-size:0.9em;color:#666">${it.ProductionYear || ''}</div>
-            </div>
-          </div>`;
-                }).join('');
-                Array.from(resultsEl.querySelectorAll('.wp-search-item')).forEach(el => {
-                    el.addEventListener('click', () => {
-                        const id = el.dataset.id;
-                        const item = items.find(x => x.Id === id);
-                        if (item) selectSeriesForDay(item, modal.dataset.targetDay);
-                        modal.remove();
-                    });
+                const item = ev.target.closest && ev.target.closest('.wp-item');
+                if (item) {
+                    const col = item.closest && item.closest('.wp-day');
+                    const dayKey = col && col.dataset && col.dataset.day ? col.dataset.day : null;
+                    const existing = (dayKey && window.STATE && window.STATE.schedule && window.STATE.schedule[dayKey] && window.STATE.schedule[dayKey][0]) ? window.STATE.schedule[dayKey][0] : null;
+                    if (dayKey) tryOpen(dayKey, existing);
+                }
+            } catch (e) { /* ignore */ }
+        };
+
+        container.addEventListener('click', handler, true);
+        container.__wp_delegation_installed = true;
+    }
+
+    // ---------- Rendering ----------
+    function renderSchedule() {
+        const { container } = findContainer();
+        if (!container) return;
+        const daysContainer = container.querySelector('.wp-days');
+        if (!daysContainer) return;
+
+        const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        dayKeys.forEach(k => {
+            const cell = daysContainer.querySelector(`.wp-day[data-day="${k}"]`);
+            if (!cell) return;
+            const list = cell.querySelector('.wp-day-list');
+            list.innerHTML = '';
+            const items = (window.STATE && window.STATE.schedule && window.STATE.schedule[k]) ? window.STATE.schedule[k] : [];
+            if (!items || !items.length) {
+                list.appendChild(el('div', { class: 'wp-empty' }, '—'));
+            } else {
+                items.forEach(it => {
+                    const itemEl = el('div', { class: 'wp-item', dataset: { id: it.id || '' } },
+                        el('img', { src: buildImageUrl(it.img || ''), alt: it.name || '', width: 140 }),
+                        el('div', { class: 'wp-name' }, it.name || '')
+                    );
+                    list.appendChild(itemEl);
                 });
-            } catch (e) {
-                resultsEl.innerHTML = '<div style="color:#b00">Search error</div>';
-                console.warn('search error', e);
             }
-        }, 300);
+        });
 
-        input.oninput = (e) => doSearch(e.target.value);
+        // ensure delegated clicks are installed
+        installDelegatedClicks();
+
+        // #region mark today
+        // mark today
+        // try {
+        //     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        //     const now = new Date();
+        //     const todayKey = dayNames[now.getDay()];
+        //     dayKeys.forEach(k => {
+        //         const cell = container.querySelector(`.wp-day[data-day="${k}"]`);
+        //         if (!cell) return;
+        //         if (k === todayKey) cell.classList.add('today');
+        //         else cell.classList.remove('today');
+        //     });
+        // } catch (e) { /* ignore */ }
+        // Read persisted value (localStorage fallback) and expose globally
+        // --- Watchplanner day delay (minutes) helpers ---
+        (function () {
+            const STORAGE_KEY = 'watchplanner.dayDelayMinutes';
+
+            function loadDayDelayMinutes() {
+                try {
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    const fallback = (typeof window.WATCHPLANNER_DAY_DELAY_MINUTES === 'number') ? window.WATCHPLANNER_DAY_DELAY_MINUTES : 0;
+                    const v = stored !== null ? Number(stored) : fallback;
+                    const n = Number.isFinite(v) ? v : 0;
+                    window.WATCHPLANNER_DAY_DELAY_MINUTES = n;
+                    return n;
+                } catch (e) {
+                    window.WATCHPLANNER_DAY_DELAY_MINUTES = 0;
+                    return 0;
+                }
+            }
+
+            // returns { ok: true } or { ok: false, error: 'msg' }
+            function saveDayDelayMinutes(value) {
+                const n = Number(value);
+                if (!Number.isFinite(n)) return { ok: false, error: 'Invalid number' };
+                if (n < -1440 || n > 1440) return { ok: false, error: 'Value out of allowed range (-1440..1440)' };
+                try {
+                    localStorage.setItem(STORAGE_KEY, String(n));
+                    window.WATCHPLANNER_DAY_DELAY_MINUTES = n;
+                    if (typeof markTodayWithDelay === 'function') {
+                        try { markTodayWithDelay(); } catch (e) { /* ignore */ }
+                    }
+                    return { ok: true };
+                } catch (e) {
+                    return { ok: false, error: 'Storage error' };
+                }
+            }
+
+            // default (can be overridden before this script runs)
+            if (typeof window.WATCHPLANNER_DAY_DELAY_MINUTES !== 'number') {
+                window.WATCHPLANNER_DAY_DELAY_MINUTES = 120;
+            }
+
+            function getAdjustedDateByMinutes() {
+                const delayMinutes = Number(window.WATCHPLANNER_DAY_DELAY_MINUTES);
+                const delay = Number.isFinite(delayMinutes) ? delayMinutes : 0;
+                return new Date(Date.now() - delay * 60 * 1000);
+            }
+
+            function markTodayWithDelay(container) {
+                try {
+                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    const adjustedDate = getAdjustedDateByMinutes();
+                    const todayKey = dayNames[adjustedDate.getDay()];
+                    const root = container || document;
+                    const dayEls = Array.from(root.querySelectorAll('.wp-day[data-day]'));
+                    const keys = dayEls.map(el => el.getAttribute('data-day')).filter(Boolean);
+                    keys.forEach(k => {
+                        const cell = root.querySelector(`.wp-day[data-day="${k}"]`);
+                        if (!cell) return;
+                        if (k === todayKey) cell.classList.add('today');
+                        else cell.classList.remove('today');
+                    });
+                } catch (e) { /* ignore */ }
+            }
+
+            // Expose helpers for later use (modal, console)
+            window.WatchplannerDayDelay = {
+                load: loadDayDelayMinutes,
+                save: saveDayDelayMinutes,
+                apply: markTodayWithDelay,
+                getAdjustedDate: getAdjustedDateByMinutes
+            };
+
+            // Initialize from storage and apply once (safe short delay)
+            loadDayDelayMinutes();
+            setTimeout(() => { try { markTodayWithDelay(); } catch (e) { /* ignore */ } }, 40);
+        })();
+
+
+        // # endregion mark today
+
+        // auto-scroll on small screens
+        try {
+            const MOBILE_BREAKPOINT = 720;
+            if (window.innerWidth <= MOBILE_BREAKPOINT) {
+                const scroller = (container.closest('.verticalSection') && container.closest('.verticalSection').querySelector('.itemsContainer')) || container.querySelector('.wp-days') || container;
+                const todayEl = container.querySelector('.wp-day.today');
+                if (scroller && todayEl) {
+                    const scrollerRect = scroller.getBoundingClientRect();
+                    const elRect = todayEl.getBoundingClientRect();
+                    const offsetLeft = (todayEl.offsetLeft || (elRect.left - scrollerRect.left + (scroller.scrollLeft || 0)));
+                    const target = Math.max(0, offsetLeft - Math.round((scroller.clientWidth - todayEl.clientWidth) / 2));
+                    setTimeout(() => {
+                        try {
+                            if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ left: target, behavior: 'smooth' });
+                            else scroller.scrollLeft = target;
+                        } catch (e) { /* ignore */ }
+                    }, 80);
+                }
+            }
+        } catch (e) { /* ignore */ }
     }
 
-    async function selectSeriesForDay(item, day) {
-        if (!item || !day) return;
-        const img = item.PrimaryImageTag ? `/Items/${item.Id}/Images/Primary?maxWidth=400` : '';
-        const seriesObj = { id: item.Id, name: item.Name || item.SeriesName || '', img };
+    // ---------- Public API functions ----------
+    function assignItemToDay(dayKey, item) {
+        try {
+            if (!dayKey || !item) return false;
+            if (!window.STATE) window.STATE = { schedule: {} };
+            if (!window.STATE.schedule) window.STATE.schedule = {};
+            if (!Array.isArray(window.STATE.schedule[dayKey])) window.STATE.schedule[dayKey] = [];
+            window.STATE.schedule[dayKey] = [{ id: item.id || '', name: item.name || '', img: item.img || '' }];
+            renderSchedule();
+            return true;
+        } catch (e) { warn('assignItemToDay failed', e); return false; }
+    }
 
-        const dayContainer = document.querySelector(`.watchplanner-day[data-day="${day}"]`);
-        if (dayContainer) {
-            dayContainer.innerHTML = `
-        <div class="wp-day-thumb" style="text-align:center;">
-          <img src="${escapeHtml(seriesObj.img)}" style="width:160px;height:240px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'"/>
-        </div>
-        <div class="wp-name" style="text-align:center;margin-top:6px;font-weight:600;">${escapeHtml(seriesObj.name)}</div>
-      `;
-        }
+    async function saveSchedule() {
+        try {
+            if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.save !== 'function') {
+                warn('saveSchedule: WatchplannerAPI.save not available');
+                return { ok: false, reason: 'api-missing' };
+            }
+            const res = await window.WatchplannerAPI.save(window.STATE.schedule, { makeBackup: true });
+            log('saveSchedule result', res);
+            return res;
+        } catch (e) { warn('saveSchedule error', e); return { ok: false, error: e }; }
+    }
 
-        const api = window.WatchplannerAPI;
-        if (!api) {
-            console.warn('WatchplannerAPI missing');
-            return;
-        }
-        const loaded = await api.load();
-        let schedule = (loaded && loaded.ok && loaded.data) ? loaded.data : { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
-        schedule[day] = [{ id: seriesObj.id, name: seriesObj.name, img: seriesObj.img }];
+    async function loadAndRender() {
+        try {
+            if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.load !== 'function') {
+                warn('loadAndRender: WatchplannerAPI.load not available');
+                buildRootContent();
+                renderSchedule();
+                return Promise.resolve(true);
+            }
+            const res = await window.WatchplannerAPI.load();
+            if (res && res.ok && res.data) {
+                if (res.data.schedule) window.STATE.schedule = res.data.schedule;
+                else window.STATE.schedule = res.data;
+            } else {
+                log('loadAndRender: load returned not-ok', res);
+            }
+        } catch (e) { warn('loadAndRender failed', e); }
+        try { buildRootContent(); } catch (e) { /* ignore */ }
+        try { renderSchedule(); } catch (e) { /* ignore */ }
+        return Promise.resolve(true);
+    }
 
-        const res = await api.save(schedule, { makeBackup: true });
-        if (res && res.ok) {
-            LOG('Saved watchplanner for', day);
-            const root = getRoot();
-            if (root) updateSummary(root, schedule);
+    // mount returns a promise that resolves when UI is rendered (or false on failure)
+    function mount(root) {
+        try {
+            const target = root || document.getElementById('watchplanner-root');
+            if (!target) return Promise.resolve(false);
+            // build shell immediately
+            buildRootContent();
+            // If we already have schedule data, render synchronously and resolve
+            if (window.STATE && window.STATE.schedule && Object.keys(window.STATE.schedule).length) {
+                try { renderSchedule(); } catch (e) { warn('mount renderSchedule failed', e); }
+                return Promise.resolve(true);
+            }
+            // Otherwise return the loadAndRender promise so callers can await readiness
+            return loadAndRender().then(() => true).catch(() => false);
+        } catch (e) { console.warn('WatchplannerUI.mount failed', e); return Promise.resolve(false); }
+    }
+
+    // ---------- Init (idempotent) ----------
+    let __wp_initialized = false;
+    function init() {
+        if (__wp_initialized) return;
+        __wp_initialized = true;
+        try {
+            buildRootContent();
+            loadAndRender();
+        } catch (e) { warn('WatchplannerUI.init failed', e); }
+    }
+
+    try {
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', init, { once: true });
         } else {
-            WARN('Save failed', res);
+            setTimeout(init, 50);
         }
-    }
+    } catch (e) { /* ignore */ }
 
-    // --- UI bindings ---
-    function bindUiHandlers(root) {
-        const btn = root.querySelector('#wp-save');
-        if (btn) btn.addEventListener('click', () => handleSave(root));
+    // ---------- Export public API ----------
+    window.WatchplannerUI = {
+        assignItemToDay,
+        saveSchedule,
+        loadAndRender,
+        renderSchedule,
+        buildRootContent,
+        mount
+    };
 
-        document.addEventListener('click', (e) => {
-            const item = e.target.closest('.wp-item');
-            if (!item) return;
-            const mod = getModContainer();
-            if (mod && !mod.contains(item)) return;
-            item.classList.toggle('selected');
-            const parsed = parseSelectedItems();
-            updateSummary(root, buildScheduleFromItems(parsed));
-        }, true);
-
-        // Wire header cells to open modal if they exist
-        Array.from(document.querySelectorAll('.watchplanner-header-cell')).forEach(el => {
-            el.addEventListener('click', () => {
-                const day = el.dataset.day;
-                if (day) openSearchModal(day);
-            });
-        });
-    }
-
-    // --- Init and watchers ---
-    function initWhenReady() {
-        const root = getRoot();
-        if (!root) return false;
-        renderUI();
-        const r = getRoot();
-        loadAndShow(r);
-        return true;
-    }
-
-    function start() {
-        if (initWhenReady()) return;
-
-        const docObs = new MutationObserver((mutations, obs) => {
-            if (initWhenReady()) obs.disconnect();
-        });
-        docObs.observe(document.documentElement || document.body, { childList: true, subtree: true });
-
-        let tries = 0;
-        const maxTries = 20;
-        const interval = setInterval(() => {
-            tries++;
-            if (initWhenReady() || tries >= maxTries) {
-                clearInterval(interval);
-                try { docObs.disconnect(); } catch (e) { }
-                if (tries >= maxTries) LOG('stopped retrying UI init after attempts');
-            }
-        }, 400);
-    }
-
-    window.WatchplannerUI = { parseSelectedItems, buildScheduleFromItems, handleSave, loadAndShow, openSearchModal };
-
-    if (document.readyState === 'loading') {
-        window.addEventListener('DOMContentLoaded', start, { once: true });
-    } else {
-        start();
-    }
-
+    log('client-ui.js initialized');
 })();

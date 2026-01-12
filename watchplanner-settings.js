@@ -1,5 +1,7 @@
 // watchplanner-settings.js
 // Tiny settings panel injected into the Watchplanner header for local testing
+// This file has some legacy code that is probably not in use, the idea is to add a new modal settings page later
+// I will keep old code here for now but I will probably not use any of it 
 (function () {
     'use strict';
 

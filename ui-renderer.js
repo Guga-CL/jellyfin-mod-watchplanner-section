@@ -3,7 +3,7 @@
     'use strict';
 
     const { el, debounce, log, warn } = window.WPUtils || {};
-    if (!el) console.warn('ui-renderer: WPUtils.el missing');
+    if (!el) console.warn('[WatchPlanner] ui-renderer: WPUtils.el missing');
 
     function buildImageUrl(path) {
         try {
@@ -58,7 +58,7 @@
                     if (window.WPModal && typeof window.WPModal.openModal === 'function') {
                         window.WPModal.openModal(d, (schedule && schedule[d] && schedule[d][0]) || null);
                     }
-                } catch (e) { console.warn('open modal error', e); }
+                } catch (e) { console.warn('[WatchPlanner] open modal error', e); }
             });
 
             header.dataset.day = d;
@@ -86,5 +86,5 @@
         updateDayInDom
     });
 
-    log('ui-renderer.js initialized');
+    log('[WatchPlanner] ui-renderer.js initialized');
 })();

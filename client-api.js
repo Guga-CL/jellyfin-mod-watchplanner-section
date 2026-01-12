@@ -52,7 +52,7 @@
                     try { json = text ? JSON.parse(text) : null; } catch (e) { /* not JSON */ }
                     return { ok: true, status: 200, statusText: 'ok', text, json };
                 } catch (e) {
-                    warn('doFetch: ApiClient.fetch failed, falling back to fetch', e);
+                    warn('[WatchPlanner] doFetch: ApiClient.fetch failed, falling back to fetch', e);
                 }
             }
 
@@ -104,7 +104,7 @@
                 const raw = localStorage.getItem(CONFIG.fileName);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    log('readConfig: falling back to localStorage');
+                    log('[WatchPlanner] readConfig: falling back to localStorage');
                     return { ok: true, data: parsed, fallback: 'localStorage' };
                 }
             } catch (e) { /* ignore */ }
@@ -117,7 +117,7 @@
         const rel = buildFolderWriteUrl(CONFIG.fileName); // returns "/Plugins/EndpointExposer/FolderWrite?folder=...&name=..."
         const body = JSON.stringify(payload, null, 2);
 
-        try { log('writeConfig: outgoing body length', body ? body.length : 0); } catch (e) { }
+        try { log('[WatchPlanner] writeConfig: outgoing body length', body ? body.length : 0); } catch (e) { }
 
         // 1) Prefer ApiClient.fetch with `data` (some ApiClient variants expect `data` not `body`)
         if (window.ApiClient && typeof window.ApiClient.fetch === 'function') {
@@ -138,10 +138,10 @@
                     try { json = text ? JSON.parse(text) : null; } catch (e) { /* not JSON */ }
                     return { ok: true, text, json };
                 } else {
-                    warn('writeConfig: ApiClient.fetch returned HTML or redirect, falling back', text && text.slice(0, 200));
+                    warn('[WatchPlanner] writeConfig: ApiClient.fetch returned HTML or redirect, falling back', text && text.slice(0, 200));
                 }
             } catch (e) {
-                warn('writeConfig: ApiClient.fetch threw, falling back', e);
+                warn('[WatchPlanner] writeConfig: ApiClient.fetch threw, falling back', e);
             }
         }
 
@@ -152,10 +152,10 @@
                 try { localStorage.setItem(CONFIG.fileName, body); } catch (e) { /* ignore */ }
                 return { ok: true, text: res.text, json: res.json };
             }
-            warn('writeConfig: doFetch returned non-ok', res && res.status, res && res.statusText);
+            warn('[WatchPlanner] writeConfig: doFetch returned non-ok', res && res.status, res && res.statusText);
             return { ok: false, status: res && res.status, statusText: res && res.statusText, text: res && res.text, error: res && res.error };
         } catch (e) {
-            warn('writeConfig: final fallback failed', e);
+            warn('[WatchPlanner] writeConfig: final fallback failed', e);
             return { ok: false, error: e };
         }
     }
@@ -214,5 +214,5 @@
         _internal: { CONFIG, buildFolderFileUrl, buildFolderWriteUrl, buildFolderFilesUrl, doFetch }
     };
 
-    log('client-api.js (cleaned) initialized');
+    log('[WatchPlanner] client-api.js (cleaned) initialized');
 })();

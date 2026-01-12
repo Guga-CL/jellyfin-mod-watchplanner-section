@@ -15,21 +15,21 @@
                     try {
                         if (window.WatchplannerUI && typeof window.WatchplannerUI.saveSchedule === 'function') {
                             result = await window.WatchplannerUI.saveSchedule();
-                            console.log('debounced autosave result', result);
+                            console.log('[WatchPlanner] debounced autosave result', result);
                         } else if (window.WatchplannerAPI && typeof window.WatchplannerAPI.save === 'function') {
                             const schedule = (window.STATE && window.STATE.schedule) ? window.STATE.schedule : null;
                             if (schedule) {
                                 result = await window.WatchplannerAPI.save(schedule, { makeBackup: true });
-                                console.log('debounced API.save result', result);
+                                console.log('[WatchPlanner] debounced API.save result', result);
                             }
                         }
                     } catch (e) {
-                        console.warn('debounced autosave error', e);
+                        console.warn('[WatchPlanner] debounced autosave error', e);
                     }
                     resolve(result);
                 }, __wp_autosave.delay);
             } catch (e) {
-                console.warn('scheduleAutosave failed', e);
+                console.warn('[WatchPlanner] scheduleAutosave failed', e);
                 resolve(null);
             }
         });
@@ -38,7 +38,7 @@
     window.scheduleAutosave = scheduleAutosave;
 
     const { el, debounce, log, warn } = window.WPUtils || {};
-    if (!el) console.warn('ui-modal: WPUtils.el missing');
+    if (!el) console.warn('[WatchPlanner] ui-modal: WPUtils.el missing');
 
     let modalOverlay = null;
     let currentDay = null;
@@ -64,16 +64,16 @@
     function selectAndAssign(item) {
         if (!item || !currentDay) return;
         if (window.WatchplannerUI && typeof window.WatchplannerUI.assignItemToDay === 'function') {
-            try { window.WatchplannerUI.assignItemToDay(currentDay, item); } catch (e) { console.warn('assignItemToDay failed', e); }
+            try { window.WatchplannerUI.assignItemToDay(currentDay, item); } catch (e) { console.warn('[WatchPlanner] assignItemToDay failed', e); }
         } else {
-            console.warn('assignItemToDay not implemented');
+            console.warn('[WatchPlanner] assignItemToDay not implemented');
         }
         try {
             scheduleAutosave().then(r => {
-                console.log('Watchplanner autosave completed', r);
-            }).catch(e => console.warn('Watchplanner autosave error', e));
+                console.log('[WatchPlanner] Watchplanner autosave completed', r);
+            }).catch(e => console.warn('[WatchPlanner] Watchplanner autosave error', e));
         } catch (e) {
-            console.warn('autosave attempt failed', e);
+            console.warn('[WatchPlanner] autosave attempt failed', e);
         }
         closeModal();
     }
@@ -219,7 +219,7 @@
         try {
             document.body.appendChild(modalOverlay);
         } catch (e) {
-            try { document.documentElement.appendChild(modalOverlay); } catch (e2) { console.warn('ui-modal: failed to append overlay to body', e2); }
+            try { document.documentElement.appendChild(modalOverlay); } catch (e2) { console.warn('[WatchPlanner] ui-modal: failed to append overlay to body', e2); }
         }
 
         setTimeout(() => { try { searchInput.focus(); } catch (e) { } }, 40);
@@ -238,5 +238,5 @@
     window.WPModal = window.WPModal || {};
     Object.assign(window.WPModal, { openModal, closeModal });
 
-    log('ui-modal.js initialized');
+    log('[WatchPlanner] ui-modal.js initialized');
 })();

@@ -72,6 +72,18 @@
         } catch (e) { return false; }
     }
 
+    // canonical day keys used across the UI
+    const DAY_KEYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    // small helper to return the common watchplanner DOM scope
+    function getWatchplannerScope() {
+        const wrapper = document.querySelector('.verticalSection[data-wp-id="watchplanner"], .verticalSection[data-wp-injected="1"]');
+        const root = document.getElementById('watchplanner-root') || (wrapper && wrapper.querySelector('#watchplanner-root'));
+        const container = (wrapper && wrapper.querySelector('.watchplanner-slot')) || root || wrapper;
+        const scroller = (wrapper && wrapper.querySelector('.itemsContainer')) || (container && container.querySelector('.wp-days')) || container;
+        return { wrapper, root, container, scroller };
+    }
+
     // ---------- DOM building ----------
     function findContainer() {
         const rootEl = document.getElementById('watchplanner-root');
@@ -83,9 +95,31 @@
     }
 
     function buildRootContent() {
-        const { rootEl, slot, container } = findContainer();
-        if (!container) return null;
-        container.innerHTML = '';
+        // Find the container and any existing root element
+        const { rootEl: foundRootEl, slot, container: foundContainer } = findContainer();
+        if (!foundContainer) return null;
+
+        // Determine canonical insertion point: reuse existing #watchplanner-root if present,
+        // otherwise create it once and append to the container/slot.
+        let rootEl = (foundRootEl && foundContainer.contains(foundRootEl)) ? foundRootEl : null;
+        let container = foundContainer;
+
+        if (!rootEl) {
+            // create a single root element and append it once
+            rootEl = document.createElement('div');
+            rootEl.id = 'watchplanner-root';
+            rootEl.className = 'watchplanner-root';
+            rootEl.dataset.wpRoot = '1';
+            // append into the slot (foundContainer) or the root location
+            container.appendChild(rootEl);
+            // use the newly created root as the canonical container for dynamic content
+            container = rootEl;
+        } else {
+            // reuse existing root: clear only its dynamic content
+            rootEl.innerHTML = '';
+            // ensure we render into the existing root
+            container = rootEl;
+        }
 
         // Controls only when rendering directly into root (no slot)
         if (!slot) {
@@ -106,8 +140,7 @@
         }
 
         const days = el('div', { class: 'wp-days' });
-        const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        dayKeys.forEach(k => {
+        DAY_KEYS.forEach(k => {
             const header = el('div', { class: 'watchplanner-header-cell' }, k);
             const dayCell = el('div', { class: 'wp-day', dataset: { day: k } }, header, el('div', { class: 'wp-day-list' }));
             days.appendChild(dayCell);
@@ -118,26 +151,26 @@
         container.appendChild(el('div', { class: 'wp-modal-placeholder' }));
 
         // If a slot appears later, hide controls rendered into root
-        if (rootEl) {
+        if (foundRootEl) {
             try {
-                if (rootEl.__wp_slot_observer) {
-                    try { rootEl.__wp_slot_observer.disconnect(); } catch (e) { /* ignore */ }
-                    rootEl.__wp_slot_observer = null;
+                if (foundRootEl.__wp_slot_observer) {
+                    try { foundRootEl.__wp_slot_observer.disconnect(); } catch (e) { /* ignore */ }
+                    foundRootEl.__wp_slot_observer = null;
                 }
                 const observer = new MutationObserver(() => {
                     const { slot: newSlot } = findContainer();
                     if (newSlot) {
                         try {
-                            const c = rootEl.querySelector('.wp-controls');
+                            const c = foundRootEl.querySelector('.wp-controls');
                             if (c) c.remove();
-                            rootEl.style.display = 'none';
+                            foundRootEl.style.display = 'none';
                         } catch (e) { /* ignore */ }
                         try { observer.disconnect(); } catch (e) { /* ignore */ }
-                        rootEl.__wp_slot_observer = null;
+                        foundRootEl.__wp_slot_observer = null;
                     }
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
-                rootEl.__wp_slot_observer = observer;
+                foundRootEl.__wp_slot_observer = observer;
             } catch (e) { /* ignore */ }
         }
 
@@ -203,8 +236,7 @@
         const daysContainer = container.querySelector('.wp-days');
         if (!daysContainer) return;
 
-        const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        dayKeys.forEach(k => {
+        DAY_KEYS.forEach(k => {
             const cell = daysContainer.querySelector(`.wp-day[data-day="${k}"]`);
             if (!cell) return;
             const list = cell.querySelector('.wp-day-list');
@@ -226,21 +258,7 @@
         // ensure delegated clicks are installed
         installDelegatedClicks();
 
-        // #region mark today
-        // mark today
-        // try {
-        //     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        //     const now = new Date();
-        //     const todayKey = dayNames[now.getDay()];
-        //     dayKeys.forEach(k => {
-        //         const cell = container.querySelector(`.wp-day[data-day="${k}"]`);
-        //         if (!cell) return;
-        //         if (k === todayKey) cell.classList.add('today');
-        //         else cell.classList.remove('today');
-        //     });
-        // } catch (e) { /* ignore */ }
-        // Read persisted value (localStorage fallback) and expose globally
-        // --- Watchplanner day delay (minutes) helpers ---
+        // #region test
         (function () {
             const STORAGE_KEY = 'watchplanner.dayDelayMinutes';
 
@@ -266,7 +284,10 @@
                 try {
                     localStorage.setItem(STORAGE_KEY, String(n));
                     window.WATCHPLANNER_DAY_DELAY_MINUTES = n;
-                    if (typeof markTodayWithDelay === 'function') {
+                    // Reapply markToday and center once via the wrapper
+                    if (typeof markTodayWithDelayAndCenter === 'function') {
+                        try { markTodayWithDelayAndCenter(); } catch (e) { /* ignore */ }
+                    } else if (typeof markTodayWithDelay === 'function') {
                         try { markTodayWithDelay(); } catch (e) { /* ignore */ }
                     }
                     return { ok: true };
@@ -311,13 +332,53 @@
                 getAdjustedDate: getAdjustedDateByMinutes
             };
 
-            // Initialize from storage and apply once (safe short delay)
-            loadDayDelayMinutes();
-            setTimeout(() => { try { markTodayWithDelay(); } catch (e) { /* ignore */ } }, 40);
+            setTimeout(() => {
+                try { markTodayWithDelay(); } catch (e) { /* ignore */ }
+                try {
+                    // run the existing auto-scroll logic after .today is applied
+                    // (re-use the same scroller code block or call a helper)
+                    (function attemptCenter(attemptsLeft = 6) {
+                        requestAnimationFrame(() => setTimeout(() => {
+                            try {
+                                const { wrapper, container, scroller } = getWatchplannerScope();
+                                const sc = scroller;
+                                const todayEl = (container && container.querySelector('.wp-day.today')) || document.querySelector('.wp-day.today');
+                                if (!sc || !todayEl) {
+                                    if (attemptsLeft > 0) return attemptCenter(attemptsLeft - 1);
+                                    return;
+                                }
+                                const scRect = sc.getBoundingClientRect();
+                                const elRect = todayEl.getBoundingClientRect();
+                                const offsetLeft = (typeof todayEl.offsetLeft === 'number' ? todayEl.offsetLeft : (elRect.left - scRect.left + (sc.scrollLeft || 0)));
+                                const viewport = sc.clientWidth || scRect.width || 0;
+                                const elWidth = todayEl.clientWidth || elRect.width || 0;
+                                const target = Math.max(0, Math.round(offsetLeft - Math.round((viewport - elWidth) / 2)));
+                                try {
+                                    if (typeof sc.scrollTo === 'function') sc.scrollTo({ left: target, behavior: 'smooth' });
+                                    else sc.scrollLeft = target;
+                                } catch (e) { try { sc.scrollLeft = target; } catch (e2) { /* ignore */ } }
+                                if (attemptsLeft > 0) {
+                                    setTimeout(() => {
+                                        const cur = sc.scrollLeft || 0;
+                                        if (Math.abs(cur - target) > 4) attemptCenter(attemptsLeft - 1);
+                                    }, 120);
+                                }
+                            } catch (e) {
+                                if (attemptsLeft > 0) setTimeout(() => attemptCenter(attemptsLeft - 1), 120);
+                            }
+                        }, 40));
+                    })();
+                } catch (e) { /* ignore */ }
+            }, 40);
+
         })();
 
 
         // # endregion mark today
+        // Helper: mark today then center (centralized to avoid duplicate calls)
+        function markTodayWithDelayAndCenter(container) {
+            try { markTodayWithDelay(container); } catch (e) { /* ignore */ }
+        }
 
         // auto-scroll on small screens
         try {
@@ -325,20 +386,54 @@
             if (window.innerWidth <= MOBILE_BREAKPOINT) {
                 const scroller = (container.closest('.verticalSection') && container.closest('.verticalSection').querySelector('.itemsContainer')) || container.querySelector('.wp-days') || container;
                 const todayEl = container.querySelector('.wp-day.today');
+
                 if (scroller && todayEl) {
-                    const scrollerRect = scroller.getBoundingClientRect();
-                    const elRect = todayEl.getBoundingClientRect();
-                    const offsetLeft = (todayEl.offsetLeft || (elRect.left - scrollerRect.left + (scroller.scrollLeft || 0)));
-                    const target = Math.max(0, offsetLeft - Math.round((scroller.clientWidth - todayEl.clientWidth) / 2));
-                    setTimeout(() => {
-                        try {
-                            if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ left: target, behavior: 'smooth' });
-                            else scroller.scrollLeft = target;
-                        } catch (e) { /* ignore */ }
-                    }, 80);
+                    (function attemptCenter(attemptsLeft = 6) {
+                        // wait a frame so custom elements and layout settle
+                        requestAnimationFrame(() => setTimeout(() => {
+                            try {
+                                // re-query in case DOM changed
+                                const sc = (scroller && scroller.nodeType) ? scroller : document.querySelector('.itemsContainer') || scroller;
+                                const today = (todayEl && todayEl.nodeType) ? todayEl : sc.querySelector('.wp-day.today');
+                                if (!sc || !today) {
+                                    if (attemptsLeft > 0) return attemptCenter(attemptsLeft - 1);
+                                    return;
+                                }
+
+                                const scRect = sc.getBoundingClientRect();
+                                const elRect = today.getBoundingClientRect();
+
+                                // offset relative to scroller viewport plus current scrollLeft
+                                const offsetLeft = (typeof today.offsetLeft === 'number' ? today.offsetLeft : (elRect.left - scRect.left + (sc.scrollLeft || 0)));
+                                const viewport = sc.clientWidth || scRect.width || 0;
+                                const elWidth = today.clientWidth || elRect.width || 0;
+                                const target = Math.max(0, Math.round(offsetLeft - Math.round((viewport - elWidth) / 2)));
+
+                                // prefer smooth scroll if available, fallback to scrollLeft
+                                try {
+                                    if (typeof sc.scrollTo === 'function') sc.scrollTo({ left: target, behavior: 'smooth' });
+                                    else sc.scrollLeft = target;
+                                } catch (e) {
+                                    try { sc.scrollLeft = target; } catch (e2) { /* ignore */ }
+                                }
+
+                                // if scroller still not centered and we have retries, try again
+                                if (attemptsLeft > 0) {
+                                    // small delay to allow scroller internals to settle
+                                    setTimeout(() => {
+                                        const cur = sc.scrollLeft || 0;
+                                        if (Math.abs(cur - target) > 4) attemptCenter(attemptsLeft - 1);
+                                    }, 120);
+                                }
+                            } catch (e) {
+                                if (attemptsLeft > 0) setTimeout(() => attemptCenter(attemptsLeft - 1), 120);
+                            }
+                        }, 40));
+                    })();
                 }
             }
         } catch (e) { /* ignore */ }
+
     }
 
     // ---------- Public API functions ----------
@@ -351,25 +446,25 @@
             window.STATE.schedule[dayKey] = [{ id: item.id || '', name: item.name || '', img: item.img || '' }];
             renderSchedule();
             return true;
-        } catch (e) { warn('assignItemToDay failed', e); return false; }
+        } catch (e) { warn('[WatchPlanner] assignItemToDay failed', e); return false; }
     }
 
     async function saveSchedule() {
         try {
             if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.save !== 'function') {
-                warn('saveSchedule: WatchplannerAPI.save not available');
+                warn('[WatchPlanner] saveSchedule: WatchplannerAPI.save not available');
                 return { ok: false, reason: 'api-missing' };
             }
             const res = await window.WatchplannerAPI.save(window.STATE.schedule, { makeBackup: true });
-            log('saveSchedule result', res);
+            log('[WatchPlanner] saveSchedule result', res);
             return res;
-        } catch (e) { warn('saveSchedule error', e); return { ok: false, error: e }; }
+        } catch (e) { warn('[WatchPlanner] saveSchedule error', e); return { ok: false, error: e }; }
     }
 
     async function loadAndRender() {
         try {
             if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.load !== 'function') {
-                warn('loadAndRender: WatchplannerAPI.load not available');
+                warn('[WatchPlanner] loadAndRender: WatchplannerAPI.load not available');
                 buildRootContent();
                 renderSchedule();
                 return Promise.resolve(true);
@@ -379,9 +474,9 @@
                 if (res.data.schedule) window.STATE.schedule = res.data.schedule;
                 else window.STATE.schedule = res.data;
             } else {
-                log('loadAndRender: load returned not-ok', res);
+                log('[WatchPlanner] loadAndRender: load returned not-ok', res);
             }
-        } catch (e) { warn('loadAndRender failed', e); }
+        } catch (e) { warn('[WatchPlanner] loadAndRender failed', e); }
         try { buildRootContent(); } catch (e) { /* ignore */ }
         try { renderSchedule(); } catch (e) { /* ignore */ }
         return Promise.resolve(true);
@@ -396,12 +491,12 @@
             buildRootContent();
             // If we already have schedule data, render synchronously and resolve
             if (window.STATE && window.STATE.schedule && Object.keys(window.STATE.schedule).length) {
-                try { renderSchedule(); } catch (e) { warn('mount renderSchedule failed', e); }
+                try { renderSchedule(); } catch (e) { warn('[WatchPlanner] mount renderSchedule failed', e); }
                 return Promise.resolve(true);
             }
             // Otherwise return the loadAndRender promise so callers can await readiness
             return loadAndRender().then(() => true).catch(() => false);
-        } catch (e) { console.warn('WatchplannerUI.mount failed', e); return Promise.resolve(false); }
+        } catch (e) { console.warn('[WatchPlanner] WatchplannerUI.mount failed', e); return Promise.resolve(false); }
     }
 
     // ---------- Init (idempotent) ----------
@@ -412,7 +507,7 @@
         try {
             buildRootContent();
             loadAndRender();
-        } catch (e) { warn('WatchplannerUI.init failed', e); }
+        } catch (e) { warn('[WatchPlanner] WatchplannerUI.init failed', e); }
     }
 
     try {
@@ -433,5 +528,10 @@
         mount
     };
 
-    log('client-ui.js initialized');
+    log('[WatchPlanner] client-ui.js initialized');
 })();
+
+// Initialize from storage and apply once (safe short delay)
+loadDayDelayMinutes();
+// mark today and center after the short delay; use wrapper to ensure centering runs after .today is applied
+setTimeout(() => { try { markTodayWithDelayAndCenter(); } catch (e) { /* ignore */ } }, 40);

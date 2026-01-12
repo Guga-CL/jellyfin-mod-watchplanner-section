@@ -9,7 +9,7 @@
     s.src = SRC + '?v=20251220'; // bump this value when you update the file
     s.async = false;
     s.setAttribute('data-wp-injector-src', SRC);
-    s.onload = () => console.log('watchplanner: injector loaded from', SRC);
-    s.onerror = (e) => console.warn('watchplanner: failed to load injector', SRC, e);
+    s.onload = () => console.log('[WatchPlanner] injector loaded from', SRC);
+    s.onerror = (e) => console.warn('[WatchPlanner] failed to load injector', SRC, e);
     document.head.appendChild(s);
 })();

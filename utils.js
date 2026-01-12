@@ -61,5 +61,5 @@
         error: safeErr
     });
 
-    safeLog('utils.js initialized');
+    safeLog('[WatchPlanner] utils.js initialized');
 })();

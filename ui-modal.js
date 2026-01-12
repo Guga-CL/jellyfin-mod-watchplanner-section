@@ -219,7 +219,7 @@
         try {
             document.body.appendChild(modalOverlay);
         } catch (e) {
-            try { document.documentElement.appendChild(modalOverlay); } catch (e2) { console.warn('[WatchPlanner] ui-modal: failed to append overlay to body', e2); }
+            try { document.documentElement.appendChild(modalOverlay); } catch (e2) { console.warn('ui-modal: failed to append overlay to body', e2); }
         }
 
         setTimeout(() => { try { searchInput.focus(); } catch (e) { } }, 40);
@@ -238,5 +238,5 @@
     window.WPModal = window.WPModal || {};
     Object.assign(window.WPModal, { openModal, closeModal });
 
-    log('[WatchPlanner] ui-modal.js initialized');
+    console.log('[WatchPlanner] ui-modal.js initialized');
 })();

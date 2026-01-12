@@ -7,7 +7,7 @@
   'use strict';
 
   // ---------- Config ----------
-  const LOG_PREFIX = 'Watchplanner-bootstrap:';
+  const LOG_PREFIX = '[WatchPlanner] Watchplanner-bootstrap:';
   window.__watchplanner_debug = window.__watchplanner_debug === true;
   // enable verbose container snapshots with: window.__watchplanner_debug_verbose = true
   const MICRO_RETRY_MS = 60;
@@ -282,7 +282,7 @@
     // 2) Try to find a visible anchor, retrying briefly if none found
     for (let attempt = 0; attempt <= INSERT_MAX_RETRIES; attempt++) {
       const visible = findVisibleChildren(container); // excludes our wrapper
-      log('[WatchPlanner] visible anchors (attempt)', attempt, visible.map(v => (v.id || v.className || v.tagName).toString()));
+      log('visible anchors (attempt)', attempt, visible.map(v => (v.id || v.className || v.tagName).toString()));
       if (visible.length > 0) {
         const anchor = visible[0];
         insertRootAfterAnchor(container, root, anchor);
@@ -334,7 +334,7 @@
         const script = document.createElement('script');
         script.src = src;
         script.defer = true;
-        script.onload = () => { log('[WatchPlanner] loaded', src); resolve(); };
+        script.onload = () => { log('loaded', src); resolve(); };
         script.onerror = (e) => { warn('failed to load', src, e); reject(new Error('failed to load ' + src)); };
         document.head.appendChild(script);
       } catch (e) { reject(e); }
@@ -366,7 +366,7 @@
         const src = `${base}/${f}`;
         try {
           if (!STATE.loadedScripts.has(src)) {
-            log('[WatchPlanner] loading', src);
+            log('loading', src);
             await loadScript(src);
             STATE.loadedScripts.add(src);
           }
@@ -389,7 +389,7 @@
           if (!w.querySelector('#watchplanner-root')) {
             try { w.removeAttribute && w.removeAttribute('data-wp-mounted'); } catch (e) { /* ignore */ }
             w.remove();
-            log('[WatchPlanner] Removed orphan wrapper');
+            log('Removed orphan wrapper');
           }
         } catch (e) { /* ignore */ }
       }
@@ -411,22 +411,22 @@
         try {
           const res = window.WatchplannerUI.mount(rootEl);
           if (res && typeof res.then === 'function') await res;
-          log('[WatchPlanner] WatchplannerUI.mount resolved', routeKey);
+          log('WatchplannerUI.mount resolved', routeKey);
         } catch (e) { warn('WatchplannerUI.mount threw', e); }
       } else if (window.WatchplannerUI && typeof window.WatchplannerUI.loadAndRender === 'function') {
         try {
           const res = window.WatchplannerUI.loadAndRender();
           if (res && typeof res.then === 'function') await res;
-          log('[WatchPlanner] WatchplannerUI.loadAndRender resolved', routeKey);
+          log('WatchplannerUI.loadAndRender resolved', routeKey);
         } catch (e) { warn('WatchplannerUI.loadAndRender threw', e); }
       } else if (typeof loadAndRender === 'function') {
         try {
           const res = loadAndRender();
           if (res && typeof res.then === 'function') await res;
-          log('[WatchPlanner] global loadAndRender resolved', routeKey);
+          log('global loadAndRender resolved', routeKey);
         } catch (e) { warn('global loadAndRender threw', e); }
       } else {
-        log('[WatchPlanner] No UI mount/load function available', routeKey);
+        log('No UI mount/load function available', routeKey);
       }
 
       let attempts = 0;
@@ -548,7 +548,7 @@
   // ---------- Main injection routine ----------
   async function tryInjectWhenReady() {
     const routeKey = location.pathname + location.hash;
-    log('[WatchPlanner] tryInjectWhenReady invoked', { route: routeKey, rootExists: !!document.getElementById('watchplanner-root') });
+    log('tryInjectWhenReady invoked', { route: routeKey, rootExists: !!document.getElementById('watchplanner-root') });
 
     try {
       const nowTs = now();
@@ -557,7 +557,7 @@
       if (!rootExists) {
         try { delete STATE.lastAttempt[routeKey]; } catch (e) { /* ignore */ }
       } else if (nowTs - last < TRY_COOLDOWN_MS) {
-        log('[WatchPlanner] tryInjectWhenReady: throttled', routeKey);
+        log('tryInjectWhenReady: throttled', routeKey);
         return false;
       }
       STATE.lastAttempt[routeKey] = nowTs;
@@ -567,7 +567,7 @@
 
     const container = findHomeSectionsContainerStrict();
     if (!container) {
-      log('[WatchPlanner] tryInjectWhenReady: home sections container not found');
+      log('tryInjectWhenReady: home sections container not found');
       return false;
     }
 
@@ -577,7 +577,7 @@
       const existingRoot = document.getElementById('watchplanner-root');
 
       if (existingRoot && container.contains(existingRoot)) {
-        log('[WatchPlanner] already injected for route and root still present; verifying position', routeKey);
+        log('already injected for route and root still present; verifying position', routeKey);
 
         const wrapper = getWrapper(container);
         if (wrapper) {
@@ -596,12 +596,12 @@
 
           // If wrapper is not after the anchor in DOM, move it
           if (firstVisible && firstVisible.nextElementSibling !== wrapper) {
-            try { firstVisible.insertAdjacentElement('afterend', wrapper); log('[WatchPlanner] moved existing wrapper after first visible anchor'); } catch (e) { warn('reposition failed', e); }
+            try { firstVisible.insertAdjacentElement('afterend', wrapper); log('moved existing wrapper after first visible anchor'); } catch (e) { warn('reposition failed', e); }
           }
 
           // Normalize order values for all children to prevent CSS order from overriding DOM order
           normalizeOrderIfNeeded(container);
-          log('[WatchPlanner] normalized order after reposition');
+          log('normalized order after reposition');
 
           // schedule a micro-check to catch immediate Jellyfin reorders
           setTimeout(() => {
@@ -618,25 +618,25 @@
                 return null;
               })();
               if (firstVisibleNow && firstVisibleNow.nextElementSibling !== wrapper) {
-                try { firstVisibleNow.insertAdjacentElement('afterend', wrapper); log('[WatchPlanner] micro-corrected wrapper position'); } catch (e) { /* ignore */ }
+                try { firstVisibleNow.insertAdjacentElement('afterend', wrapper); log('micro-corrected wrapper position'); } catch (e) { /* ignore */ }
                 normalizeOrderIfNeeded(container);
               }
             } catch (e) { /* ignore */ }
           }, 80);
         } else {
           // no wrapper found: ensure wrapper/slot exists and position it
-          try { await ensureWrapperAndPosition(container, existingRoot); log('[WatchPlanner] ensured wrapper for existing root'); } catch (e) { warn('ensureWrapperAndPosition failed', e); }
+          try { await ensureWrapperAndPosition(container, existingRoot); log('ensured wrapper for existing root'); } catch (e) { warn('ensureWrapperAndPosition failed', e); }
         }
 
         // continue the flow (do not return early) so mount logic runs if needed
       } else {
         try { delete window.__watchplanner_injected[routeKey]; } catch (e) { /* ignore */ }
-        log('[WatchPlanner] previous injection marker cleared because root missing', routeKey);
+        log('previous injection marker cleared because root missing', routeKey);
       }
     }
 
     if (!container.childElementCount || container.childElementCount < 3) {
-      log('[WatchPlanner] container found but not populated yet; observing for children');
+      log('container found but not populated yet; observing for children');
       const obs = new MutationObserver((mutations, observer) => {
         if (container.childElementCount && container.childElementCount > 2) {
           observer.disconnect();
@@ -682,7 +682,7 @@
           if (root.childElementCount && root.childElementCount > 0) {
             if (wrapperEl && wrapperEl.setAttribute) wrapperEl.setAttribute('data-wp-mounted', '1');
             markInjectedForRoute(routeKey);
-            log('[WatchPlanner] root already populated; marked wrapper mounted', routeKey);
+            log('root already populated; marked wrapper mounted', routeKey);
             return;
           }
 
@@ -715,9 +715,9 @@
           if (mounted) {
             if (wrapperEl && wrapperEl.setAttribute) wrapperEl.setAttribute('data-wp-mounted', '1');
             markInjectedForRoute(routeKey);
-            log('[WatchPlanner] root populated; marked wrapper mounted', routeKey);
+            log('root populated; marked wrapper mounted', routeKey);
           } else {
-            log('[WatchPlanner] mount attempt finished but root still empty', routeKey);
+            log('mount attempt finished but root still empty', routeKey);
           }
         } catch (e) { warn('mount after insertion failed', e); }
       });
@@ -846,7 +846,7 @@
       if (attempts >= maxAttempts) {
         clearInterval(retryInterval);
         try { docObserver.disconnect(); } catch (e) { /* ignore */ }
-        log('[WatchPlanner] stopped retrying injection after attempts');
+        log('stopped retrying injection after attempts');
       }
     }, 500);
   }
@@ -864,7 +864,7 @@
     try {
       try { delete window.__watchplanner_injected[location.pathname + location.hash]; } catch (e) { /* ignore */ }
       tryInjectWhenReady();
-      log('[WatchPlanner] WatchplannerBootstrap.mount invoked');
+      log('WatchplannerBootstrap.mount invoked');
     } catch (e) { warn('WatchplannerBootstrap.mount failed', e); }
   };
 
@@ -874,7 +874,7 @@
       if (root) try { root.remove(); } catch (e) { /* ignore */ }
       Array.from(document.querySelectorAll('.verticalSection[data-wp-id="watchplanner"], .verticalSection[data-wp-injected="1"]')).forEach(w => { try { w.remove(); } catch (e) { /* ignore */ } });
       try { window.__watchplanner_injected = {}; } catch (e) { /* ignore */ }
-      log('[WatchPlanner] WatchplannerBootstrap.unmount invoked');
+      log('WatchplannerBootstrap.unmount invoked');
     } catch (e) { warn('WatchplannerBootstrap.unmount failed', e); }
   };
 
@@ -882,9 +882,9 @@
     try {
       try { STATE.bodyObserver && STATE.bodyObserver.disconnect(); } catch (e) { /* ignore */ }
       try { delete window.__watchplanner_state; } catch (e) { /* ignore */ }
-      log('[WatchPlanner] WatchplannerBootstrap.destroy invoked');
+      log('WatchplannerBootstrap.destroy invoked');
     } catch (e) { warn('WatchplannerBootstrap.destroy failed', e); }
   };
 
-  log('[WatchPlanner] watchplanner.bootstrap initialized');
+  console.log('[WatchPlanner] watchplanner.bootstrap.js initialized');
 })();

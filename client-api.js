@@ -1,7 +1,6 @@
 // client-api.js (cleaned) — Endpoint Exposer integration without internal backup logic
 // - Removes internal backup creation/rotation (Endpoint Exposer handles backups)
 // - Keeps read/write/load/save helpers and robust ApiClient/fetch fallbacks
-
 (function () {
     'use strict';
 
@@ -214,5 +213,5 @@
         _internal: { CONFIG, buildFolderFileUrl, buildFolderWriteUrl, buildFolderFilesUrl, doFetch }
     };
 
-    log('client-api.js (cleaned) initialized');
+    console.log('[WatchPlanner] client-api.js initialized');
 })();

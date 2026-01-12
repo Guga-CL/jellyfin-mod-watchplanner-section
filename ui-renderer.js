@@ -86,5 +86,5 @@
         updateDayInDom
     });
 
-    log('[WatchPlanner] ui-renderer.js initialized');
+    console.log('[WatchPlanner] ui-renderer.js initialized');
 })();

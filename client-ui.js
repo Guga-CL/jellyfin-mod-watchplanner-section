@@ -528,7 +528,7 @@
         mount
     };
 
-    log('client-ui.js initialized');
+    console.log('[WatchPlanner] client-ui.js initialized');
 })();
 
 // Initialize from storage and apply once (safe short delay)

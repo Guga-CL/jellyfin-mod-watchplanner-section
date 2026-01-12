@@ -3,7 +3,7 @@
 (function () {
     'use strict';
 
-    const LOG_PREFIX = '[WatchPlanner] WP-Utils:';
+    const LOG_PREFIX = '[WatchPlanner] utils:';
     function safeLog(...a) { try { console.log(LOG_PREFIX, ...a); } catch (e) { } }
     function safeWarn(...a) { try { console.warn(LOG_PREFIX, ...a); } catch (e) { } }
     function safeErr(...a) { try { console.error(LOG_PREFIX, ...a); } catch (e) { } }
@@ -61,5 +61,6 @@
         error: safeErr
     });
 
-    safeLog('utils.js initialized');
+    // safeLog('utils.js initialized');
+    console.log('[WatchPlanner] utils.js initialized');
 })();

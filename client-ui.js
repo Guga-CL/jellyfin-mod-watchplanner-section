@@ -6,7 +6,7 @@
     'use strict';
 
     // ---------- Config / Debug ----------
-    const LOG_PREFIX = 'WatchplannerUI:';
+    const LOG_PREFIX = '[WatchPlanner] client-ui:';
     // Enable debug logs at runtime: window.__watchplanner_debug = true;
     window.__watchplanner_debug = window.__watchplanner_debug === true; // default false
 
@@ -446,25 +446,25 @@
             window.STATE.schedule[dayKey] = [{ id: item.id || '', name: item.name || '', img: item.img || '' }];
             renderSchedule();
             return true;
-        } catch (e) { warn('[WatchPlanner] assignItemToDay failed', e); return false; }
+        } catch (e) { warn('assignItemToDay failed', e); return false; }
     }
 
     async function saveSchedule() {
         try {
             if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.save !== 'function') {
-                warn('[WatchPlanner] saveSchedule: WatchplannerAPI.save not available');
+                warn('saveSchedule: WatchplannerAPI.save not available');
                 return { ok: false, reason: 'api-missing' };
             }
             const res = await window.WatchplannerAPI.save(window.STATE.schedule, { makeBackup: true });
-            log('[WatchPlanner] saveSchedule result', res);
+            log('saveSchedule result', res);
             return res;
-        } catch (e) { warn('[WatchPlanner] saveSchedule error', e); return { ok: false, error: e }; }
+        } catch (e) { warn('saveSchedule error', e); return { ok: false, error: e }; }
     }
 
     async function loadAndRender() {
         try {
             if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.load !== 'function') {
-                warn('[WatchPlanner] loadAndRender: WatchplannerAPI.load not available');
+                warn('loadAndRender: WatchplannerAPI.load not available');
                 buildRootContent();
                 renderSchedule();
                 return Promise.resolve(true);
@@ -474,9 +474,9 @@
                 if (res.data.schedule) window.STATE.schedule = res.data.schedule;
                 else window.STATE.schedule = res.data;
             } else {
-                log('[WatchPlanner] loadAndRender: load returned not-ok', res);
+                log('loadAndRender: load returned not-ok', res);
             }
-        } catch (e) { warn('[WatchPlanner] loadAndRender failed', e); }
+        } catch (e) { warn('loadAndRender failed', e); }
         try { buildRootContent(); } catch (e) { /* ignore */ }
         try { renderSchedule(); } catch (e) { /* ignore */ }
         return Promise.resolve(true);
@@ -491,12 +491,12 @@
             buildRootContent();
             // If we already have schedule data, render synchronously and resolve
             if (window.STATE && window.STATE.schedule && Object.keys(window.STATE.schedule).length) {
-                try { renderSchedule(); } catch (e) { warn('[WatchPlanner] mount renderSchedule failed', e); }
+                try { renderSchedule(); } catch (e) { warn('mount renderSchedule failed', e); }
                 return Promise.resolve(true);
             }
             // Otherwise return the loadAndRender promise so callers can await readiness
             return loadAndRender().then(() => true).catch(() => false);
-        } catch (e) { console.warn('[WatchPlanner] WatchplannerUI.mount failed', e); return Promise.resolve(false); }
+        } catch (e) { console.warn('WatchplannerUI.mount failed', e); return Promise.resolve(false); }
     }
 
     // ---------- Init (idempotent) ----------
@@ -507,7 +507,7 @@
         try {
             buildRootContent();
             loadAndRender();
-        } catch (e) { warn('[WatchPlanner] WatchplannerUI.init failed', e); }
+        } catch (e) { warn('WatchplannerUI.init failed', e); }
     }
 
     try {
@@ -528,7 +528,7 @@
         mount
     };
 
-    log('[WatchPlanner] client-ui.js initialized');
+    log('client-ui.js initialized');
 })();
 
 // Initialize from storage and apply once (safe short delay)

@@ -1,5 +1,5 @@
 // Tiny loader used in Javascript Injector jellyfin plugin, used to call: watchplanner.bootstrap.js
-// Have to manually add this as a script in the plugin settings
+// Have to manually add this as a script in the JavaScript Injector plugin settings
 (function () {
     'use strict';
     const SRC = '/jelly/web/mods/jellyfin-mod-watchplanner-section/watchplanner.bootstrap.js'; // confirmed reachable

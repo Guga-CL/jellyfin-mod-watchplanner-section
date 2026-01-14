@@ -17,13 +17,36 @@
 
     function createItemElement(item, dayKey, onClick) {
         const imgUrl = buildImageUrl(item && item.img ? item.img : '');
-        const img = el ? el('img', { src: imgUrl || '', alt: item && item.name ? item.name : '', class: 'wp-thumb' }) : (() => { const i = document.createElement('img'); i.src = imgUrl || ''; i.alt = item && item.name ? item.name : ''; i.className = 'wp-thumb'; return i; })();
-        const name = el ? el('div', { class: 'wp-name' }, item && item.name ? item.name : '') : (() => { const d = document.createElement('div'); d.className = 'wp-name'; d.textContent = item && item.name ? item.name : ''; return d; })();
-        const wrapper = el ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '' } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.appendChild(img); w.appendChild(name); return w; })();
+        // create elements; always set name via textContent to avoid el() race
+        const img = (typeof el === 'function') ? el('img', { src: '', alt: item && item.name ? item.name : '', class: 'wp-thumb' }) : (() => { const i = document.createElement('img'); i.src = ''; i.alt = item && item.name ? item.name : ''; i.className = 'wp-thumb'; return i; })();
+        const name = (typeof el === 'function') ? el('div', { class: 'wp-name' }, '') : (() => { const d = document.createElement('div'); d.className = 'wp-name'; return d; })();
+        // ensure name text is explicitly set (avoid empty nodes when el is flaky)
+        try { name.textContent = item && item.name ? item.name : ''; } catch (e) { try { name.innerText = item && item.name ? item.name : ''; } catch (e2) { /* ignore */ } }
+        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '' } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.appendChild(img); w.appendChild(name); return w; })();
+
+        // set src after insertion to reduce race conditions on some mobile clients
+        setTimeout(() => {
+            try { img.src = imgUrl || ''; } catch (e) { /* ignore */ }
+        }, 20);
+
+        // graceful fallback if image fails to load
+        try {
+            img.onerror = function () {
+                try { img.classList.add('wp-thumb-error'); } catch (e) { /* ignore */ }
+            };
+        } catch (e) { /* ignore */ }
 
         if (typeof onClick === 'function') {
             wrapper.addEventListener('click', () => onClick(dayKey, item));
         }
+
+        // debug: warn if item lacks name or img (helps track mobile-only failures)
+        try {
+            if (window.__watchplanner_debug && (!item || (!item.name && !item.img))) {
+                console.warn('[WatchPlanner] createItemElement: missing fields', { dayKey, item });
+            }
+        } catch (e) { /* ignore */ }
+
         return wrapper;
     }
 
@@ -39,7 +62,15 @@
             list.appendChild(placeholder);
             return;
         }
-        list.appendChild(createItemElement(first, dayKey, onItemClick));
+        const itemEl = createItemElement(first, dayKey, onItemClick);
+        // defensive: ensure name node has text (covers rare el() failures)
+        try {
+            const nameNode = itemEl.querySelector && itemEl.querySelector('.wp-name');
+            if (nameNode && (!nameNode.textContent || nameNode.textContent.trim() === '')) {
+                nameNode.textContent = first && first.name ? first.name : '';
+            }
+        } catch (e) { /* ignore */ }
+        list.appendChild(itemEl);
     }
 
     function renderGrid(parent, schedule = {}, onItemClick) {

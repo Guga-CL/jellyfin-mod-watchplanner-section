@@ -21,13 +21,13 @@ Lightweight Watchplanner UI for Jellyfin, injected via JavaScript Injector. It a
 
 ---
 
-### Files
+### Main Files
 
 - **client-ui.js:** Client UI.
 - **client-api.js:** Client logic.
 - **watchplanner-styles.css:** Styles for the Watchplanner UI.
 - **watchplanner-config.json:** file that will need to be moved/created in a local folder using Endpoint Exposer
-- **js-injector.js:** Injector snippet that loads the mod files (via JavaScript Injector plugin or other injection method).
+- **javascript-loader.js:** Injector snippet that loads the mod files (via JavaScript Injector plugin or other injection method).
   <!-- - **scripts/update_config.ps1:** PowerShell script that updates the server-side JSON (`watchplanner.json`) with the POST payload. -->
   <!-- - **watchplanner.json:** Shared configuration file persisted on the server. -->
 
@@ -106,7 +106,7 @@ On error:
 - **Static asset placement:** Put the mod files in:
   `C:\Program Files\Jellyfin\Server\jellyfin-web\mods\jellyfin-mod-watchplanner-section\`
   so they’re served at `/web/mods/jellyfin-mod-watchplanner-section`.
-- **Injector:** Use `js-injector.js` to load the client JS/CSS and optional static JSON. The injector can be delivered via a JavaScript Injector plugin or another method.
+- **Injector:** Use `javascript-loader.js` to load the client JS/CSS and optional static JSON. The injector can be delivered via a JavaScript Injector plugin or another method.
 <!-- - **Persistence:** With the secure Caddy route in place, the client can POST updates that apply server-wide; during early dev, localStorage remains an option. -->
 
 ---

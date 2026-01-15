@@ -21,7 +21,7 @@ Watchplanner UI for Jellyfin, injected via JavaScript Injector. It adds a weekly
 ### Overview
 
 - **UI injection:** Adds a Mon–Sun grid to the Jellyfin home screen and basic admin tools to assign a serie per day.
-- **Shared config:** Writes to a server-side JSON file (`watchplanner.json`) via Endpoint Exposer plugin.
+- **Shared config:** Writes to a server-side JSON file (`watchplanner-config.json`) via Endpoint Exposer plugin.
 - **Static assets path:** Served from `/web/mods/jellyfin-mod-watchplanner-section` so Jellyfin can load them directly.
 
 ---

@@ -1,5 +1,3 @@
-### README
-
 A basic example of modding the Jellyfin home page by adding a new custom global "section", using a JavaScript injector and Endpoint Exposer jellyfin plugin (optional - if you need to write to disk)
 
 ---

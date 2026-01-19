@@ -1,6 +1,5 @@
-// client-api.js (cleaned) — Endpoint Exposer integration without internal backup logic
-// - Removes internal backup creation/rotation (Endpoint Exposer handles backups)
-// - Keeps read/write/load/save helpers and robust ApiClient/fetch fallbacks
+// client-api.js
+// Integrated with Endpoint Exposer
 (function () {
     'use strict';
 

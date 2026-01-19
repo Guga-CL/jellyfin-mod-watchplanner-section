@@ -1,4 +1,4 @@
-A basic example of modding the Jellyfin home page by adding a new custom global "section", using a JavaScript injector and Endpoint Exposer jellyfin plugin (optional - if you need to write to disk)
+A basic example of modding the Jellyfin home page by adding a new custom global "section", using a JavaScript injector and Endpoint Exposer jellyfin plugin (needed here to allow the mod to write data to disk). No changes are made to any of the server files, I just add a new "mods" folder.
 
 ---
 

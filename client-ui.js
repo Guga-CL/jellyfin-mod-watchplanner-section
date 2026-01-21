@@ -215,13 +215,6 @@
                     ev.preventDefault();
                     return;
                 }
-                const item = ev.target.closest && ev.target.closest('.wp-item');
-                if (item) {
-                    const col = item.closest && item.closest('.wp-day');
-                    const dayKey = col && col.dataset && col.dataset.day ? col.dataset.day : null;
-                    const existing = (dayKey && window.STATE && window.STATE.schedule && window.STATE.schedule[dayKey] && window.STATE.schedule[dayKey][0]) ? window.STATE.schedule[dayKey][0] : null;
-                    if (dayKey) tryOpen(dayKey, existing);
-                }
             } catch (e) { /* ignore */ }
         };
 
@@ -246,10 +239,74 @@
                 list.appendChild(el('div', { class: 'wp-empty' }, '—'));
             } else {
                 items.forEach(it => {
-                    const itemEl = el('div', { class: 'wp-item', dataset: { id: it.id || '' } },
-                        el('img', { src: buildImageUrl(it.img || ''), alt: it.name || '', width: 140 }),
+                    const imgEl = el('img', { src: buildImageUrl(it.img || ''), alt: it.name || '', width: 140 });
+                    const itemEl = el('div', { class: 'wp-item', dataset: { id: it.id || '', seriesId: it.seriesId || it.id || '' } },
+                        imgEl,
                         el('div', { class: 'wp-name' }, it.name || '')
                     );
+
+                    // Add image click handler for playback
+                    try {
+                        imgEl.addEventListener('click', async (ev) => {
+                            ev.stopPropagation();
+                            ev.preventDefault();
+                            console.log('[WatchPlanner] Image clicked (renderSchedule), seriesId:', itemEl.dataset.seriesId);
+
+                            try {
+                                const seriesId = itemEl.dataset.seriesId;
+
+                                if (!seriesId) {
+                                    console.warn('[WatchPlanner] No seriesId available for playback', { it });
+                                    return;
+                                }
+
+                                // Check if API is available
+                                if (!window.WatchplannerAPI) {
+                                    console.warn('[WatchPlanner] WatchplannerAPI not available');
+                                    return;
+                                }
+
+                                // Add loading state
+                                try { imgEl.style.opacity = '0.6'; } catch (e) { /* ignore */ }
+
+                                console.log('[WatchPlanner] Fetching next episode for seriesId:', seriesId);
+
+                                // Fetch next episode
+                                const nextRes = await window.WatchplannerAPI.getNextEpisode(seriesId);
+
+                                if (!nextRes.ok) {
+                                    const fallbackRes = await window.WatchplannerAPI.getNextEpisodeFallback(seriesId);
+
+                                    if (!fallbackRes.ok) {
+                                        console.warn('[WatchPlanner] Failed to fetch next episode', fallbackRes);
+                                        try { imgEl.style.opacity = '1'; } catch (e) { /* ignore */ }
+                                        return;
+                                    }
+                                    // Navigate to episode
+                                    const playRes = await window.WatchplannerAPI.startPlayback(fallbackRes.episode.id);
+                                    if (!playRes.ok) {
+                                        console.warn('[WatchPlanner] Navigation failed', playRes);
+                                    }
+                                    try { imgEl.style.opacity = '1'; } catch (e) { /* ignore */ }
+                                    return;
+                                }
+
+                                // Navigate to episode
+                                const playRes = await window.WatchplannerAPI.startPlayback(nextRes.episode.id);
+                                if (!playRes.ok) {
+                                    console.warn('[WatchPlanner] Navigation failed', playRes);
+                                }
+
+                                try { imgEl.style.opacity = '1'; } catch (e) { /* ignore */ }
+                            } catch (e) {
+                                console.warn('[WatchPlanner] Image click handler error', e);
+                                try { imgEl.style.opacity = '1'; } catch (e2) { /* ignore */ }
+                            }
+                        });
+                    } catch (e) {
+                        console.warn('[WatchPlanner] Failed to add click listener to image', e);
+                    }
+
                     list.appendChild(itemEl);
                 });
             }
@@ -443,7 +500,7 @@
             if (!window.STATE) window.STATE = { schedule: {} };
             if (!window.STATE.schedule) window.STATE.schedule = {};
             if (!Array.isArray(window.STATE.schedule[dayKey])) window.STATE.schedule[dayKey] = [];
-            window.STATE.schedule[dayKey] = [{ id: item.id || '', name: item.name || '', img: item.img || '' }];
+            window.STATE.schedule[dayKey] = [{ id: item.id || '', name: item.name || '', img: item.img || '', seriesId: item.seriesId || item.id || '' }];
             renderSchedule();
             return true;
         } catch (e) { warn('assignItemToDay failed', e); return false; }

@@ -2,8 +2,12 @@
 (function () {
     'use strict';
 
-    const { el, debounce, log, warn } = window.WPUtils || {};
+    const { el, debounce, log: utilLog, warn: utilWarn } = window.WPUtils || {};
     if (!el) console.warn('[WatchPlanner] ui-renderer: WPUtils.el missing');
+
+    // Fallback logging if WPUtils not available
+    const log = utilLog || ((msg) => { try { if (window.__watchplanner_debug) console.log('[WatchPlanner] ui-renderer:', msg); } catch (e) { } });
+    const warn = utilWarn || ((msg) => { try { console.warn('[WatchPlanner] ui-renderer:', msg); } catch (e) { } });
 
     function buildImageUrl(path) {
         try {
@@ -22,7 +26,7 @@
         const name = (typeof el === 'function') ? el('div', { class: 'wp-name' }, '') : (() => { const d = document.createElement('div'); d.className = 'wp-name'; return d; })();
         // ensure name text is explicitly set (avoid empty nodes when el is flaky)
         try { name.textContent = item && item.name ? item.name : ''; } catch (e) { try { name.innerText = item && item.name ? item.name : ''; } catch (e2) { /* ignore */ } }
-        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '' } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.appendChild(img); w.appendChild(name); return w; })();
+        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '', seriesId: item && item.seriesId ? item.seriesId : '' } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.dataset.seriesId = item && item.seriesId ? item.seriesId : ''; w.appendChild(img); w.appendChild(name); return w; })();
 
         // set src after insertion to reduce race conditions on some mobile clients
         setTimeout(() => {
@@ -34,6 +38,78 @@
             img.onerror = function () {
                 try { img.classList.add('wp-thumb-error'); } catch (e) { /* ignore */ }
             };
+        } catch (e) { /* ignore */ }
+
+        // Handle image click to play next unwatched episode
+        try {
+            img.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                try {
+                    const seriesId = wrapper.dataset.seriesId || item.seriesId;
+                    console.log('[WatchPlanner] Image clicked, seriesId:', seriesId);
+
+                    if (!seriesId) {
+                        console.warn('[WatchPlanner] No seriesId available for playback', { item });
+                        return;
+                    }
+
+                    // Check if API is available
+                    if (!window.WatchplannerAPI) {
+                        console.warn('[WatchPlanner] WatchplannerAPI not available');
+                        return;
+                    }
+
+                    // Add loading state
+                    try { img.style.opacity = '0.6'; } catch (e) { /* ignore */ }
+
+                    console.log('[WatchPlanner] Fetching next episode for seriesId:', seriesId);
+
+                    // Fetch next episode
+                    const nextRes = await window.WatchplannerAPI.getNextEpisode(seriesId);
+                    console.log('[WatchPlanner] getNextEpisode response:', nextRes);
+
+                    if (!nextRes.ok) {
+                        console.log('[WatchPlanner] getNextEpisode failed, trying fallback', nextRes);
+                        const fallbackRes = await window.WatchplannerAPI.getNextEpisodeFallback(seriesId);
+                        console.log('[WatchPlanner] getNextEpisodeFallback response:', fallbackRes);
+
+                        if (!fallbackRes.ok) {
+                            console.warn('[WatchPlanner] Failed to fetch next episode', fallbackRes);
+                            try { img.style.opacity = '1'; } catch (e) { /* ignore */ }
+                            return;
+                        }
+                        // Proceed with fallback episode
+                        console.log('[WatchPlanner] Starting playback with fallback episode:', fallbackRes.episode);
+                        const playRes = await window.WatchplannerAPI.startPlayback(fallbackRes.episode.id);
+                        console.log('[WatchPlanner] startPlayback response:', playRes);
+
+                        if (playRes.ok) {
+                            console.log('[WatchPlanner] Started playback (fallback)', fallbackRes.episode);
+                        } else {
+                            console.warn('[WatchPlanner] Failed to start playback', playRes);
+                        }
+                        try { img.style.opacity = '1'; } catch (e) { /* ignore */ }
+                        return;
+                    }
+
+                    // Start playback
+                    console.log('[WatchPlanner] Starting playback with episode:', nextRes.episode);
+                    const playRes = await window.WatchplannerAPI.startPlayback(nextRes.episode.id);
+                    console.log('[WatchPlanner] startPlayback response:', playRes);
+
+                    if (playRes.ok) {
+                        console.log('[WatchPlanner] Started playback', nextRes.episode);
+                    } else {
+                        console.warn('[WatchPlanner] Failed to start playback', playRes);
+                    }
+
+                    try { img.style.opacity = '1'; } catch (e) { /* ignore */ }
+                } catch (e) {
+                    console.warn('[WatchPlanner] Image click handler error', e);
+                    try { img.style.opacity = '1'; } catch (e2) { /* ignore */ }
+                }
+            });
         } catch (e) { /* ignore */ }
 
         if (typeof onClick === 'function') {

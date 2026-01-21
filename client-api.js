@@ -201,6 +201,164 @@
         return `${window.location.origin}${itemImgPath}`;
     }
 
+    // Get next unwatched episode for a series
+    async function getNextEpisode(seriesId) {
+        try {
+            if (!seriesId) {
+                console.warn('[WatchPlanner] getNextEpisode: no-series-id');
+                return { ok: false, error: 'no-series-id' };
+            }
+
+            // Get current user ID
+            const userId = window.ApiClient && window.ApiClient.getCurrentUserId ? window.ApiClient.getCurrentUserId() : '';
+            if (!userId) {
+                console.warn('[WatchPlanner] getNextEpisode: unable to get user ID');
+                return { ok: false, error: 'no-user-id' };
+            }
+
+            // Use Shows/NextUp endpoint with series filter
+            const url = `/Shows/NextUp?userId=${encodeURIComponent(userId)}&seriesId=${encodeURIComponent(seriesId)}&limit=1`;
+            console.log('[WatchPlanner] getNextEpisode: requesting URL:', url);
+
+            const res = await fetchWithOptionalAdminRetry(url, { method: 'GET', credentials: 'same-origin' });
+            console.log('[WatchPlanner] getNextEpisode: API response:', res);
+
+            if (!res.ok) {
+                console.warn('[WatchPlanner] getNextEpisode: Shows/NextUp endpoint failed', res.status);
+                return { ok: false, status: res.status, error: 'next-up-failed' };
+            }
+
+            const items = res.json && res.json.Items ? res.json.Items : [];
+            if (!items.length) {
+                console.warn('[WatchPlanner] getNextEpisode: no-episodes-found');
+                return { ok: false, error: 'no-episodes-found' };
+            }
+
+            const episode = items[0];
+            console.log('[WatchPlanner] getNextEpisode: found episode:', episode);
+
+            return {
+                ok: true,
+                episode: {
+                    id: episode.Id,
+                    name: episode.Name,
+                    seriesName: episode.SeriesName,
+                    seasonNumber: episode.ParentIndexNumber,
+                    episodeNumber: episode.IndexNumber
+                }
+            };
+        } catch (e) {
+            console.error('[WatchPlanner] getNextEpisode error', e);
+            return { ok: false, error: e.message };
+        }
+    }
+
+    // Alternative: get all unwatched episodes for a series, return the first one
+    async function getNextEpisodeFallback(seriesId) {
+        try {
+            if (!seriesId) {
+                console.warn('[WatchPlanner] getNextEpisodeFallback: no-series-id');
+                return { ok: false, error: 'no-series-id' };
+            }
+
+            // Fetch episodes recursively from the series
+            const url = `/Items?ParentId=${encodeURIComponent(seriesId)}&SortBy=ParentIndexNumber,IndexNumber&IncludeItemTypes=Episode&Recursive=true&Fields=ItemCounts,PrimaryImageAspectRatio`;
+            console.log('[WatchPlanner] getNextEpisodeFallback: requesting URL:', url);
+
+            const res = await fetchWithOptionalAdminRetry(url, { method: 'GET', credentials: 'same-origin' });
+            console.log('[WatchPlanner] getNextEpisodeFallback: API response:', res);
+
+            if (!res.ok) {
+                console.warn('[WatchPlanner] getNextEpisodeFallback: fetch-episodes-failed', res.status);
+                return { ok: false, status: res.status, error: 'fetch-episodes-failed' };
+            }
+
+            const items = res.json && res.json.Items ? res.json.Items : [];
+            console.log('[WatchPlanner] getNextEpisodeFallback: found items:', items.length);
+
+            // Filter to only Episodes (sometimes Jellyfin returns other types)
+            const episodes = items.filter(item => item.Type === 'Episode');
+            console.log('[WatchPlanner] getNextEpisodeFallback: filtered to episodes:', episodes.length);
+
+            // Find first unwatched episode
+            const nextEpisode = episodes.find(ep => !ep.UserData || !ep.UserData.Played);
+            if (!nextEpisode) {
+                console.warn('[WatchPlanner] getNextEpisodeFallback: all-episodes-watched');
+                return { ok: false, error: 'all-episodes-watched' };
+            }
+
+            console.log('[WatchPlanner] getNextEpisodeFallback: found episode:', nextEpisode);
+
+            return {
+                ok: true,
+                episode: {
+                    id: nextEpisode.Id,
+                    name: nextEpisode.Name,
+                    seriesName: nextEpisode.SeriesName,
+                    seasonNumber: nextEpisode.ParentIndexNumber,
+                    episodeNumber: nextEpisode.IndexNumber
+                }
+            };
+        } catch (e) {
+            console.error('[WatchPlanner] getNextEpisodeFallback error', e);
+            return { ok: false, error: e.message };
+        }
+    }
+
+    // Start playback of an episode
+    async function startPlayback(episodeId) {
+        try {
+            if (!episodeId) {
+                console.warn('[WatchPlanner] startPlayback: no-episode-id');
+                return { ok: false, error: 'no-episode-id' };
+            }
+
+            console.log('[WatchPlanner] startPlayback: starting playback of episode:', episodeId);
+
+            let sessionId = null;
+
+            // Try to get session ID from ApiClient if available
+            if (window.ApiClient && window.ApiClient.sessionId) {
+                sessionId = typeof window.ApiClient.sessionId === 'function'
+                    ? window.ApiClient.sessionId()
+                    : window.ApiClient.sessionId;
+            }
+
+            // Fallback: fetch sessions list and use the first one
+            if (!sessionId) {
+                const sessionsRes = await fetchWithOptionalAdminRetry('/Sessions', { method: 'GET', credentials: 'same-origin' });
+                if (sessionsRes.ok && sessionsRes.json && Array.isArray(sessionsRes.json) && sessionsRes.json.length > 0) {
+                    sessionId = sessionsRes.json[0].Id;
+                }
+            }
+
+            if (!sessionId) {
+                console.warn('[WatchPlanner] startPlayback: unable to get session ID, navigating to episode');
+                window.location.hash = `#!/details?id=${encodeURIComponent(episodeId)}`;
+                return { ok: true };
+            }
+
+            // Use Sessions/Playing endpoint to start playback
+            const url = `/Sessions/${encodeURIComponent(sessionId)}/Playing?playCommand=PlayNow&itemIds=${encodeURIComponent(episodeId)}`;
+            const res = await fetchWithOptionalAdminRetry(url, { method: 'POST', credentials: 'same-origin' });
+
+            if (!res.ok) {
+                console.warn('[WatchPlanner] startPlayback: Sessions/Playing failed, navigating to episode');
+                window.location.hash = `#!/details?id=${encodeURIComponent(episodeId)}`;
+                return { ok: true };
+            }
+
+            console.log('[WatchPlanner] startPlayback: playback started successfully');
+            return { ok: true };
+        } catch (e) {
+            console.error('[WatchPlanner] startPlayback error', e);
+            try {
+                window.location.hash = `#!/details?id=${encodeURIComponent(episodeId)}`;
+            } catch (e2) { /* ignore */ }
+            return { ok: false, error: e.message };
+        }
+    }
+
     window.WatchplannerAPI = {
         listFiles,
         readConfig,
@@ -209,6 +367,9 @@
         load,
         validatePayload,
         buildImageUrl,
+        getNextEpisode,
+        getNextEpisodeFallback,
+        startPlayback,
         _internal: { CONFIG, buildFolderFileUrl, buildFolderWriteUrl, buildFolderFilesUrl, doFetch }
     };
 

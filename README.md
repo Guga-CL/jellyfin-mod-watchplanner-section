@@ -12,7 +12,18 @@ Watchplanner UI for Jellyfin, injected via JavaScript Injector. It adds a weekly
 
 - Work in progress - this project is not ready for general use, the main functions already works.
 - Not much customizability, no settings.
-- Simple test week grid, you can already search & replace its content.
+- Simple test week grid,
+- You can already search & replace the serie in the grid content (only 1 serie per week day)¹
+- Clicking the images will try to start playback of the next up episode (next unwatched episode)¹
+
+¹ uses jellyfin API
+
+---
+
+### TODO
+
+- Instead of the image being the button, maybe add something similar to what jellyfin uses by default.
+- Add the ball with the number of remaining episodes that you see in some jellyfin cards (I believe it's related to these divs: cardIndicators countIndicator indicator)
 
 ---
 

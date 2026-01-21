@@ -1,4 +1,4 @@
-A basic example of modding the Jellyfin home page by adding a new custom global "section", using a JavaScript injector and Endpoint Exposer jellyfin plugin (needed here to allow the mod to write data to disk). No changes are made to any of the server files, I just added a new "mods" folder.
+A basic example of modding the Jellyfin home page by adding a new custom global "section", using a JavaScript injector and Endpoint Exposer jellyfin plugin (needed here to allow the mod to write data to disk). No changes are made to any of the server files, I just added a new "mods" folder, this is good because updates shouldn't break anything.
 
 ---
 
@@ -10,20 +10,22 @@ Watchplanner UI for Jellyfin, injected via JavaScript Injector. It adds a weekly
 
 ### Status
 
-- Work in progress - this project is not ready for general use, the main functions already works.
+- Work in progress - this project is not ready for general use, but the main functions already works.
+- Simple test week grid.
 - Not much customizability, no settings.
-- Simple test week grid,
-- You can already search & replace the serie in the grid content (only 1 serie per week day)¹
-- Clicking the images will try to start playback of the next up episode (next unwatched episode)¹
+- You can already search & replace the serie in the week grid, only 1 serie per week day.¹
+- Clicking the images will try to start playback of the next up episode, the next unwatched episode.¹
+- Highlight the current day and also auto scroll to it if on a mobile device, it has a 120 minutes delay you can adjust direct in the code -until I add a settings modal-, find in `client-ui.js`: `window.WATCHPLANNER_DAY_DELAY_MINUTES = 120`
 
-¹ uses jellyfin API
+¹ uses the jellyfin API
 
 ---
 
 ### TODO
 
-- Instead of the image being the button, maybe add something similar to what jellyfin uses by default.
-- Add the ball with the number of remaining episodes that you see in some jellyfin cards (I believe it's related to these divs: cardIndicators countIndicator indicator)
+- Instead of the image being the button, maybe add something similar to what jellyfin uses.
+- Add that ball with the number of remaining episodes that you see in some jellyfin cards (I believe it's related to these divs: cardIndicators countIndicator indicator).
+- Settings modal, not sure what will be included here, for now it's just the delay to change from one day of the week to the next.
 
 ---
 

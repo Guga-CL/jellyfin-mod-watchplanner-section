@@ -106,6 +106,22 @@
     return wrapper;
   }
 
+  function refreshWatchplannerContent() {
+    try {
+      if (window.WatchplannerUI && typeof window.WatchplannerUI.loadAndRender === 'function') {
+        window.WatchplannerUI.loadAndRender();
+        return true;
+      }
+      if (typeof loadAndRender === 'function') {
+        loadAndRender();
+        return true;
+      }
+    } catch (e) {
+      warn('refreshWatchplannerContent failed', e);
+    }
+    return false;
+  }
+
   function createSectionTitle(titleText, moreHref) {
     const titleContainer = document.createElement('div');
     titleContainer.className = 'sectionTitleContainer sectionTitleContainer-cards padded-left';
@@ -121,7 +137,22 @@
     chev.setAttribute('aria-hidden', 'true');
     link.appendChild(h2);
     link.appendChild(chev);
+
+    const refreshButton = document.createElement('button');
+    refreshButton.type = 'button';
+    refreshButton.className = 'wp-title-refresh emby-button button-flat button-flat-mini';
+    refreshButton.setAttribute('aria-label', 'Refresh Watchplanner');
+    refreshButton.textContent = '⟳';
+    refreshButton.addEventListener('click', (ev) => {
+      try {
+        ev.preventDefault();
+        ev.stopPropagation();
+        refreshWatchplannerContent();
+      } catch (e) { /* ignore */ }
+    });
+
     titleContainer.appendChild(link);
+    titleContainer.appendChild(refreshButton);
     return titleContainer;
   }
 
@@ -407,27 +438,30 @@
   async function callUiMountAndAwait(rootEl, routeKey) {
     try {
       if (!rootEl) return false;
+      let mountResult;
       if (window.WatchplannerUI && typeof window.WatchplannerUI.mount === 'function') {
         try {
           const res = window.WatchplannerUI.mount(rootEl);
-          if (res && typeof res.then === 'function') await res;
+          mountResult = res && typeof res.then === 'function' ? await res : res;
           log('WatchplannerUI.mount resolved', routeKey);
         } catch (e) { warn('WatchplannerUI.mount threw', e); }
       } else if (window.WatchplannerUI && typeof window.WatchplannerUI.loadAndRender === 'function') {
         try {
           const res = window.WatchplannerUI.loadAndRender();
-          if (res && typeof res.then === 'function') await res;
+          mountResult = res && typeof res.then === 'function' ? await res : res;
           log('WatchplannerUI.loadAndRender resolved', routeKey);
         } catch (e) { warn('WatchplannerUI.loadAndRender threw', e); }
       } else if (typeof loadAndRender === 'function') {
         try {
           const res = loadAndRender();
-          if (res && typeof res.then === 'function') await res;
+          mountResult = res && typeof res.then === 'function' ? await res : res;
           log('global loadAndRender resolved', routeKey);
         } catch (e) { warn('global loadAndRender threw', e); }
       } else {
         log('No UI mount/load function available', routeKey);
       }
+
+      if (mountResult === false) return false;
 
       let attempts = 0;
       while (attempts < POLL_MAX_ATTEMPTS) {

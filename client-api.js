@@ -316,19 +316,43 @@
             console.log('[WatchPlanner] startPlayback: starting playback of episode:', episodeId);
 
             let sessionId = null;
+            const currentUserId = window.ApiClient && window.ApiClient.getCurrentUserId ? window.ApiClient.getCurrentUserId() : null;
 
-            // Try to get session ID from ApiClient if available
+            // Try to get session ID from ApiClient first
             if (window.ApiClient && window.ApiClient.sessionId) {
                 sessionId = typeof window.ApiClient.sessionId === 'function'
                     ? window.ApiClient.sessionId()
                     : window.ApiClient.sessionId;
             }
 
-            // Fallback: fetch sessions list and use the first one
+            // Fallback: fetch sessions list and find the one for the current user
             if (!sessionId) {
                 const sessionsRes = await fetchWithOptionalAdminRetry('/Sessions', { method: 'GET', credentials: 'same-origin' });
-                if (sessionsRes.ok && sessionsRes.json && Array.isArray(sessionsRes.json) && sessionsRes.json.length > 0) {
-                    sessionId = sessionsRes.json[0].Id;
+                if (sessionsRes.ok && sessionsRes.json && Array.isArray(sessionsRes.json)) {
+                    // Try to find session matching current user
+                    if (currentUserId) {
+                        const userSession = sessionsRes.json.find(s => s.UserId === currentUserId);
+                        if (userSession) {
+                            sessionId = userSession.Id;
+                            console.log('[WatchPlanner] startPlayback: found session for current user:', sessionId);
+                        }
+                    }
+                    // If no user match, try to find a browser client session
+                    if (!sessionId) {
+                        const browserSession = sessionsRes.json.find(s => {
+                            const client = (s.Client || '').toLowerCase();
+                            return client.includes('chrome') || client.includes('firefox') || client.includes('safari') || client.includes('browser') || client.includes('web');
+                        });
+                        if (browserSession) {
+                            sessionId = browserSession.Id;
+                            console.log('[WatchPlanner] startPlayback: found browser session:', sessionId);
+                        }
+                    }
+                    // Last resort: use first session
+                    if (!sessionId && sessionsRes.json.length > 0) {
+                        sessionId = sessionsRes.json[0].Id;
+                        console.log('[WatchPlanner] startPlayback: using first available session:', sessionId);
+                    }
                 }
             }
 

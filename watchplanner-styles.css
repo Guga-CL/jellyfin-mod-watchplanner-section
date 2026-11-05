@@ -56,6 +56,7 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  padding-bottom: 8px;
 }
 #watchplanner-root .wp-item,
 .watchplanner-slot .wp-item {
@@ -88,6 +89,17 @@
   max-width: 138px;
   text-align: center;
   font-size: 0.95rem;
+}
+
+#watchplanner-root .wp-name a,
+.watchplanner-slot .wp-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#watchplanner-root .wp-name a:hover,
+.watchplanner-slot .wp-name a:hover {
+  text-decoration: underline;
 }
 
 /* Modal styles (both contexts) */
@@ -163,7 +175,31 @@
 .verticalSection .sectionTitleContainer {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 12px 16px;
+}
+
+/* Refresh button beside the Watchplanner title */
+.wp-title-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+}
+
+.wp-title-refresh:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.wp-title-refresh:focus-visible {
+  outline: 2px solid var(--theme-accent, #00a4dc);
+  outline-offset: 2px;
 }
 
 /* Items container slot to behave like other items */

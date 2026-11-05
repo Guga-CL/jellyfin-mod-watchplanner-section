@@ -24,9 +24,45 @@
         // create elements; always set name via textContent to avoid el() race
         const img = (typeof el === 'function') ? el('img', { src: '', alt: item && item.name ? item.name : '', class: 'wp-thumb' }) : (() => { const i = document.createElement('img'); i.src = ''; i.alt = item && item.name ? item.name : ''; i.className = 'wp-thumb'; return i; })();
         const name = (typeof el === 'function') ? el('div', { class: 'wp-name' }, '') : (() => { const d = document.createElement('div'); d.className = 'wp-name'; return d; })();
-        // ensure name text is explicitly set (avoid empty nodes when el is flaky)
-        try { name.textContent = item && item.name ? item.name : ''; } catch (e) { try { name.innerText = item && item.name ? item.name : ''; } catch (e2) { /* ignore */ } }
-        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '', seriesId: item && item.seriesId ? item.seriesId : '' } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.dataset.seriesId = item && item.seriesId ? item.seriesId : ''; w.appendChild(img); w.appendChild(name); return w; })();
+        const seriesId = item && (item.seriesId || item.id) || '';
+        const serverId = window.ApiClient && typeof window.ApiClient.serverId === 'function'
+            ? window.ApiClient.serverId()
+            : '';
+        const seriesHref = seriesId
+            ? `#/details?id=${encodeURIComponent(seriesId)}${serverId ? `&serverId=${encodeURIComponent(serverId)}` : ''}`
+            : '';
+        if (seriesHref) {
+            const link = (typeof el === 'function')
+                ? el('a', {
+                    href: seriesHref,
+                    class: 'itemAction textActionButton',
+                    title: item && item.name ? item.name : '',
+                    dataset: {
+                        id: seriesId,
+                        serverid: serverId,
+                        type: 'Series',
+                        isfolder: 'true',
+                        action: 'link'
+                    }
+                }, item && item.name ? item.name : '')
+                : (() => {
+                    const a = document.createElement('a');
+                    a.href = seriesHref;
+                    a.className = 'itemAction textActionButton';
+                    a.title = item && item.name ? item.name : '';
+                    a.dataset.id = seriesId;
+                    a.dataset.serverid = serverId;
+                    a.dataset.type = 'Series';
+                    a.dataset.isfolder = 'true';
+                    a.dataset.action = 'link';
+                    a.textContent = item && item.name ? item.name : '';
+                    return a;
+                })();
+            name.appendChild(link);
+        } else {
+            try { name.textContent = item && item.name ? item.name : ''; } catch (e) { try { name.innerText = item && item.name ? item.name : ''; } catch (e2) { /* ignore */ } }
+        }
+        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '', seriesId: seriesId } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.dataset.seriesId = seriesId; w.appendChild(img); w.appendChild(name); return w; })();
 
         // set src after insertion to reduce race conditions on some mobile clients
         setTimeout(() => {

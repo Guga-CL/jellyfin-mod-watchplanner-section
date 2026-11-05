@@ -42,6 +42,22 @@
 
     // ---------- Local state ----------
     window.STATE = window.STATE || { schedule: { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] } };
+    let scheduleLoaded = false;
+    let loadPromise = null;
+    let loadRetryTimer = null;
+    let loadRetryDelay = 2000;
+
+    function scheduleLoadRetry() {
+        if (loadRetryTimer !== null || scheduleLoaded) return;
+        loadRetryTimer = setTimeout(() => {
+            loadRetryTimer = null;
+            if (!scheduleLoaded && (window.location.hash || '').startsWith('#/home') &&
+                document.getElementById('watchplanner-root')) {
+                loadAndRender();
+            }
+        }, loadRetryDelay);
+        loadRetryDelay = Math.min(loadRetryDelay * 2, 30000);
+    }
 
     // ---------- Helpers ----------
     function buildImageUrl(path) {
@@ -223,7 +239,34 @@
     }
 
     // ---------- Rendering ----------
-    function renderSchedule() {
+    function shouldRetryRenderSchedule() {
+        try {
+            if (!window.STATE || !window.STATE.schedule) return false;
+            const { container } = findContainer();
+            if (!container) return false;
+            const daysContainer = container.querySelector('.wp-days');
+            if (!daysContainer) return false;
+
+            return DAY_KEYS.some(k => {
+                const items = (window.STATE.schedule && window.STATE.schedule[k]) ? window.STATE.schedule[k] : [];
+                if (!items || !items.length) return false;
+                const cell = daysContainer.querySelector(`.wp-day[data-day="${k}"]`);
+                if (!cell) return true;
+                const list = cell.querySelector('.wp-day-list');
+                if (!list || !list.children.length) return true;
+                const firstItem = items[0];
+                if (firstItem && firstItem.name) {
+                    const nameNode = list.querySelector('.wp-name');
+                    if (!nameNode || !nameNode.textContent || !nameNode.textContent.trim()) return true;
+                }
+                return false;
+            });
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function renderSchedule(retryAttempt = 0) {
         const { container } = findContainer();
         if (!container) return;
         const daysContainer = container.querySelector('.wp-days');
@@ -239,10 +282,34 @@
                 list.appendChild(el('div', { class: 'wp-empty' }, '—'));
             } else {
                 items.forEach(it => {
+                    const seriesId = it.seriesId || it.id || '';
+                    const serverId = window.ApiClient && typeof window.ApiClient.serverId === 'function'
+                        ? window.ApiClient.serverId()
+                        : '';
+                    const seriesHref = seriesId
+                        ? `#/details?id=${encodeURIComponent(seriesId)}${serverId ? `&serverId=${encodeURIComponent(serverId)}` : ''}`
+                        : '';
+                    const nameEl = el('div', { class: 'wp-name' });
+                    if (seriesHref) {
+                        nameEl.appendChild(el('a', {
+                            href: seriesHref,
+                            class: 'itemAction textActionButton',
+                            title: it.name || '',
+                            dataset: {
+                                id: seriesId,
+                                serverid: serverId,
+                                type: 'Series',
+                                isfolder: 'true',
+                                action: 'link'
+                            }
+                        }, it.name || ''));
+                    } else {
+                        nameEl.textContent = it.name || '';
+                    }
                     const imgEl = el('img', { src: buildImageUrl(it.img || ''), alt: it.name || '', width: 140 });
                     const itemEl = el('div', { class: 'wp-item', dataset: { id: it.id || '', seriesId: it.seriesId || it.id || '' } },
                         imgEl,
-                        el('div', { class: 'wp-name' }, it.name || '')
+                        nameEl
                     );
 
                     // Add image click handler for playback
@@ -314,6 +381,19 @@
 
         // ensure delegated clicks are installed
         installDelegatedClicks();
+
+        if (retryAttempt === 0) {
+            setTimeout(() => {
+                try {
+                    if (shouldRetryRenderSchedule()) {
+                        log('renderSchedule: detected missing day content, rerendering once');
+                        renderSchedule(1);
+                    }
+                } catch (e) {
+                    warn('renderSchedule retry check failed', e);
+                }
+            }, 150);
+        }
 
         // #region test
         (function () {
@@ -519,24 +599,51 @@
     }
 
     async function loadAndRender() {
-        try {
+        if (loadPromise) return loadPromise;
+
+        loadPromise = (async () => {
+            const retryDelays = [500, 1500];
             if (!window.WatchplannerAPI || typeof window.WatchplannerAPI.load !== 'function') {
                 warn('loadAndRender: WatchplannerAPI.load not available');
-                buildRootContent();
-                renderSchedule();
-                return Promise.resolve(true);
-            }
-            const res = await window.WatchplannerAPI.load();
-            if (res && res.ok && res.data) {
-                if (res.data.schedule) window.STATE.schedule = res.data.schedule;
-                else window.STATE.schedule = res.data;
             } else {
-                log('loadAndRender: load returned not-ok', res);
+                for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+                    try {
+                        const res = await window.WatchplannerAPI.load();
+                        if (res && res.ok) {
+                            if (res.data) {
+                                window.STATE.schedule = res.data.schedule || res.data;
+                            }
+                            scheduleLoaded = true;
+                            break;
+                        }
+                        warn('loadAndRender: load returned not-ok', res);
+                    } catch (e) {
+                        warn('loadAndRender failed', e);
+                    }
+
+                    if (attempt < retryDelays.length) {
+                        await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
+                    }
+                }
             }
-        } catch (e) { warn('loadAndRender failed', e); }
-        try { buildRootContent(); } catch (e) { /* ignore */ }
-        try { renderSchedule(); } catch (e) { /* ignore */ }
-        return Promise.resolve(true);
+
+            try { buildRootContent(); } catch (e) { warn('loadAndRender: buildRootContent failed', e); }
+            try { renderSchedule(); } catch (e) { warn('loadAndRender: renderSchedule failed', e); }
+            if (scheduleLoaded) {
+                if (loadRetryTimer !== null) clearTimeout(loadRetryTimer);
+                loadRetryTimer = null;
+                loadRetryDelay = 2000;
+            } else {
+                scheduleLoadRetry();
+            }
+            return scheduleLoaded;
+        })();
+
+        try {
+            return await loadPromise;
+        } finally {
+            loadPromise = null;
+        }
     }
 
     // mount returns a promise that resolves when UI is rendered (or false on failure)
@@ -546,8 +653,8 @@
             if (!target) return Promise.resolve(false);
             // build shell immediately
             buildRootContent();
-            // If we already have schedule data, render synchronously and resolve
-            if (window.STATE && window.STATE.schedule && Object.keys(window.STATE.schedule).length) {
+            // The default schedule has day keys too, so only a completed API load is cached.
+            if (scheduleLoaded) {
                 try { renderSchedule(); } catch (e) { warn('mount renderSchedule failed', e); }
                 return Promise.resolve(true);
             }

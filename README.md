@@ -10,7 +10,7 @@ Watchplanner UI for Jellyfin, injected via JavaScript Injector. It adds a weekly
 
 ### Status
 
-- Work in progress - this project is not ready for general use, but the main functions already works. There are some issues specially in the android client where sometimes it doesn't load.
+- Work in progress - this project is not ready for general use, but the main functions already work. Startup now shares and retries the initial config load so a slow or transient failure is less likely to leave the section empty; the Android client still needs verification.
 - Simple test week grid.
 - Not much customizability, no settings.
 - You can already search & replace the serie in the week grid, only 1 serie per week day.¹

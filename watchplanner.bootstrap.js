@@ -16,7 +16,8 @@
   const POLL_INTERVAL_MS = 80;
   const POLL_MAX_ATTEMPTS = 12;
   const SCRIPT_FILES = ['utils.js', 'client-api.js', 'ui-renderer.js', 'ui-modal.js', 'client-ui.js'];
-  const CSS_FILENAME = 'watchplanner-styles.css?v=20251218';
+  const ASSET_VERSION = '20261105';
+  const CSS_FILENAME = `watchplanner-styles.css?v=${ASSET_VERSION}`;
   const MODULE_BASE_DEFAULT = '/web/mods/jellyfin-mod-watchplanner-section';
 
   // ---------- Logging ----------
@@ -394,7 +395,7 @@
       const base = getModuleBase();
       try { await injectCss(`${base}/${CSS_FILENAME}`); } catch (e) { /* ignore */ }
       for (const f of SCRIPT_FILES) {
-        const src = `${base}/${f}`;
+        const src = `${base}/${f}?v=${ASSET_VERSION}`;
         try {
           if (!STATE.loadedScripts.has(src)) {
             log('loading', src);

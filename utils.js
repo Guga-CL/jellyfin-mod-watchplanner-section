@@ -50,12 +50,31 @@
         try { return JSON.parse(text); } catch (e) { return null; }
     }
 
+    async function addUnplayedCountBadge(imageContainer, seriesId) {
+        if (!imageContainer || !seriesId || !window.WatchplannerAPI ||
+            typeof window.WatchplannerAPI.getUnplayedEpisodeCount !== 'function') return;
+
+        const result = await window.WatchplannerAPI.getUnplayedEpisodeCount(seriesId);
+        if (!result.ok) {
+            safeWarn('Unable to load unplayed episode count', { seriesId, result });
+            return;
+        }
+        if (result.count <= 0 || !imageContainer.isConnected) return;
+
+        const label = `${result.count} unplayed episode${result.count === 1 ? '' : 's'}`;
+        const indicators = el('div', { class: 'cardIndicators', 'aria-label': label },
+            el('div', { class: 'countIndicator indicator', title: label }, result.count)
+        );
+        imageContainer.appendChild(indicators);
+    }
+
     // Expose minimal API
     window.WPUtils = window.WPUtils || {};
     Object.assign(window.WPUtils, {
         el,
         debounce,
         tryParseJson,
+        addUnplayedCountBadge,
         log: safeLog,
         warn: safeWarn,
         error: safeErr

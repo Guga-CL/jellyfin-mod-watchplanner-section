@@ -6,7 +6,7 @@
     if (!SRC) return;
     if (document.querySelector('script[data-wp-injector-src="' + SRC + '"]')) return;
     const s = document.createElement('script');
-    s.src = SRC + '?v=20251220'; // bump this value when you update the file
+    s.src = SRC + '?v=20261105'; // bump this value when you update the file
     s.async = false;
     s.setAttribute('data-wp-injector-src', SRC);
     s.onload = () => console.log('[WatchPlanner] injector loaded from', SRC);

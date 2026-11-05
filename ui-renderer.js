@@ -23,6 +23,7 @@
         const imgUrl = buildImageUrl(item && item.img ? item.img : '');
         // create elements; always set name via textContent to avoid el() race
         const img = (typeof el === 'function') ? el('img', { src: '', alt: item && item.name ? item.name : '', class: 'wp-thumb' }) : (() => { const i = document.createElement('img'); i.src = ''; i.alt = item && item.name ? item.name : ''; i.className = 'wp-thumb'; return i; })();
+        const imageContainer = (typeof el === 'function') ? el('div', { class: 'wp-image-container' }, img) : (() => { const d = document.createElement('div'); d.className = 'wp-image-container'; d.appendChild(img); return d; })();
         const name = (typeof el === 'function') ? el('div', { class: 'wp-name' }, '') : (() => { const d = document.createElement('div'); d.className = 'wp-name'; return d; })();
         const seriesId = item && (item.seriesId || item.id) || '';
         const serverId = window.ApiClient && typeof window.ApiClient.serverId === 'function'
@@ -62,7 +63,10 @@
         } else {
             try { name.textContent = item && item.name ? item.name : ''; } catch (e) { try { name.innerText = item && item.name ? item.name : ''; } catch (e2) { /* ignore */ } }
         }
-        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '', seriesId: seriesId } }, img, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.dataset.seriesId = seriesId; w.appendChild(img); w.appendChild(name); return w; })();
+        const wrapper = (typeof el === 'function') ? el('div', { class: 'wp-item', dataset: { id: item && item.id ? item.id : '', seriesId: seriesId } }, imageContainer, name) : (() => { const w = document.createElement('div'); w.className = 'wp-item'; w.dataset.id = item && item.id ? item.id : ''; w.dataset.seriesId = seriesId; w.appendChild(imageContainer); w.appendChild(name); return w; })();
+        if (window.WPUtils && typeof window.WPUtils.addUnplayedCountBadge === 'function') {
+            window.WPUtils.addUnplayedCountBadge(imageContainer, seriesId);
+        }
 
         // set src after insertion to reduce race conditions on some mobile clients
         setTimeout(() => {

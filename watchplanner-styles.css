@@ -67,6 +67,12 @@
   width: 100%;
   box-sizing: border-box;
 }
+#watchplanner-root .wp-image-container,
+.watchplanner-slot .wp-image-container {
+  position: relative;
+  width: 100%;
+  max-width: 160px;
+}
 #watchplanner-root .wp-item img,
 .watchplanner-slot .wp-item img {
   width: 100%;
@@ -78,6 +84,31 @@
   margin: 0 auto;
   max-height: 215px;
   cursor: pointer !important;
+}
+#watchplanner-root .cardIndicators,
+.watchplanner-slot .cardIndicators {
+  align-items: center;
+  display: flex;
+  position: absolute;
+  top: 0.225em;
+  right: 0.225em;
+  z-index: 1;
+  pointer-events: none;
+}
+#watchplanner-root .countIndicator,
+.watchplanner-slot .countIndicator {
+  align-items: center;
+  /* background: var(--theme-primary-color, #52b54b); */
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.85em;
+  font-weight: 600;
+  justify-content: center;
+  line-height: 1.6em;
+  min-width: 1.6em;
+  padding: 0 0.25em;
+  text-align: center;
 }
 
 #watchplanner-root .wp-name,

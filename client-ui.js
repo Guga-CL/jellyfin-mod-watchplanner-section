@@ -75,8 +75,8 @@
             const found = Array.from(document.styleSheets).some(s => s.href && s.href.indexOf('watchplanner-styles.css') !== -1);
             if (found) return true;
             const href = (window.WATCHPLANNER_SERVER_BASE && String(window.WATCHPLANNER_SERVER_BASE).length)
-                ? `${String(window.WATCHPLANNER_SERVER_BASE).replace(/\/$/, '')}/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20251218`
-                : '/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20251218';
+                ? `${String(window.WATCHPLANNER_SERVER_BASE).replace(/\/$/, '')}/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20261105`
+                : '/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20261105';
             return new Promise((resolve) => {
                 const link = document.createElement('link');
                 link.rel = 'stylesheet';
@@ -307,10 +307,14 @@
                         nameEl.textContent = it.name || '';
                     }
                     const imgEl = el('img', { src: buildImageUrl(it.img || ''), alt: it.name || '', width: 140 });
+                    const imageContainer = el('div', { class: 'wp-image-container' }, imgEl);
                     const itemEl = el('div', { class: 'wp-item', dataset: { id: it.id || '', seriesId: it.seriesId || it.id || '' } },
-                        imgEl,
+                        imageContainer,
                         nameEl
                     );
+                    if (window.WPUtils && typeof window.WPUtils.addUnplayedCountBadge === 'function') {
+                        window.WPUtils.addUnplayedCountBadge(imageContainer, itemEl.dataset.seriesId);
+                    }
 
                     // Add image click handler for playback
                     try {

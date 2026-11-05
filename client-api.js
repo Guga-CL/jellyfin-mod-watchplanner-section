@@ -253,6 +253,37 @@
         }
     }
 
+    async function getUnplayedEpisodeCount(seriesId) {
+        try {
+            if (!seriesId) {
+                return { ok: false, error: 'no-series-id' };
+            }
+
+            const userId = window.ApiClient && window.ApiClient.getCurrentUserId
+                ? window.ApiClient.getCurrentUserId()
+                : '';
+            if (!userId) {
+                return { ok: false, error: 'no-user-id' };
+            }
+
+            const url = `/UserItems/${encodeURIComponent(seriesId)}/UserData?userId=${encodeURIComponent(userId)}`;
+            const res = await fetchWithOptionalAdminRetry(url, { method: 'GET', credentials: 'same-origin' });
+            if (!res.ok) {
+                return { ok: false, status: res.status, error: 'user-data-request-failed' };
+            }
+
+            const count = res.json && res.json.UnplayedItemCount;
+            if (!Number.isInteger(count) || count < 0) {
+                return { ok: false, error: 'invalid-unplayed-count' };
+            }
+
+            return { ok: true, count };
+        } catch (e) {
+            console.error('[WatchPlanner] getUnplayedEpisodeCount error', e);
+            return { ok: false, error: e.message };
+        }
+    }
+
     // Alternative: get all unwatched episodes for a series, return the first one
     async function getNextEpisodeFallback(seriesId) {
         try {
@@ -392,6 +423,7 @@
         validatePayload,
         buildImageUrl,
         getNextEpisode,
+        getUnplayedEpisodeCount,
         getNextEpisodeFallback,
         startPlayback,
         _internal: { CONFIG, buildFolderFileUrl, buildFolderWriteUrl, buildFolderFilesUrl, doFetch }

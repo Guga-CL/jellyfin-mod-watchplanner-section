@@ -67,6 +67,9 @@
         if (window.WPUtils && typeof window.WPUtils.addUnplayedCountBadge === 'function') {
             window.WPUtils.addUnplayedCountBadge(imageContainer, seriesId);
         }
+        if (window.WPUtils && typeof window.WPUtils.addNextEpisodeLabel === 'function') {
+            window.WPUtils.addNextEpisodeLabel(wrapper, seriesId);
+        }
 
         // set src after insertion to reduce race conditions on some mobile clients
         setTimeout(() => {

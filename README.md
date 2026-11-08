@@ -16,6 +16,7 @@ Watchplanner UI for Jellyfin, injected via JavaScript Injector. It adds a weekly
 - You can already search & replace the serie in the week grid, only 1 serie per week day.¹
 - Clicking the images will try to start playback of the next up episode, the next unwatched episode.¹
 - Series images show the current user's number of unplayed episodes when Jellyfin provides that count.
+- Series cards show the next unwatched episode below the title in `S00:E00` format when Jellyfin provides its season and episode numbers.
 - Highlight the current day and also auto scroll to it if on a mobile device, it has a 120 minutes delay you can adjust direct in the code -until I add a settings modal-, find in `client-ui.js`: `window.WATCHPLANNER_DAY_DELAY_MINUTES = 120`
 
 ¹ uses the jellyfin API

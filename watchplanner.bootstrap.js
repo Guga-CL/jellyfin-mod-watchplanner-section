@@ -16,7 +16,7 @@
   const POLL_INTERVAL_MS = 80;
   const POLL_MAX_ATTEMPTS = 12;
   const SCRIPT_FILES = ['utils.js', 'client-api.js', 'ui-renderer.js', 'ui-modal.js', 'client-ui.js'];
-  const ASSET_VERSION = '20261105';
+  const ASSET_VERSION = '20261108';
   const CSS_FILENAME = `watchplanner-styles.css?v=${ASSET_VERSION}`;
   const MODULE_BASE_DEFAULT = '/web/mods/jellyfin-mod-watchplanner-section';
 

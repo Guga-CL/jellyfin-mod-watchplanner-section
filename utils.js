@@ -68,6 +68,39 @@
         imageContainer.appendChild(indicators);
     }
 
+    async function addNextEpisodeLabel(itemContainer, seriesId) {
+        if (!itemContainer || !seriesId || !window.WatchplannerAPI ||
+            typeof window.WatchplannerAPI.getNextEpisode !== 'function') return;
+
+        try {
+            let result = await window.WatchplannerAPI.getNextEpisode(seriesId);
+            if ((!result || !result.ok) && typeof window.WatchplannerAPI.getNextEpisodeFallback === 'function') {
+                result = await window.WatchplannerAPI.getNextEpisodeFallback(seriesId);
+            }
+            if (!result || !result.ok) {
+                safeWarn('Unable to load next unwatched episode', { seriesId, result });
+                return;
+            }
+
+            const episode = result.episode;
+            if (!episode || !Number.isInteger(episode.seasonNumber) || episode.seasonNumber < 0 ||
+                !Number.isInteger(episode.episodeNumber) || episode.episodeNumber < 0) {
+                safeWarn('Next unwatched episode is missing season or episode number', { seriesId, episode });
+                return;
+            }
+            if (!itemContainer.isConnected) return;
+
+            const label = `S${String(episode.seasonNumber).padStart(2, '0')}:E${String(episode.episodeNumber).padStart(2, '0')}`;
+            itemContainer.appendChild(el('div', {
+                class: 'wp-next-episode',
+                title: 'Next unwatched episode',
+                'aria-label': `Next unwatched episode: ${label}`
+            }, label));
+        } catch (e) {
+            safeWarn('Failed to add next unwatched episode label', { seriesId, error: e });
+        }
+    }
+
     // Expose minimal API
     window.WPUtils = window.WPUtils || {};
     Object.assign(window.WPUtils, {
@@ -75,6 +108,7 @@
         debounce,
         tryParseJson,
         addUnplayedCountBadge,
+        addNextEpisodeLabel,
         log: safeLog,
         warn: safeWarn,
         error: safeErr

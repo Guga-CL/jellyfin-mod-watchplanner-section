@@ -133,6 +133,14 @@
   text-decoration: underline;
 }
 
+#watchplanner-root .wp-next-episode,
+.watchplanner-slot .wp-next-episode {
+  color: var(--theme-secondary-text-color, inherit);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
 /* Modal styles (both contexts) */
 #watchplanner-root .wp-modal-overlay,
 .watchplanner-slot .wp-modal-overlay {

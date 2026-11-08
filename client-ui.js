@@ -75,8 +75,8 @@
             const found = Array.from(document.styleSheets).some(s => s.href && s.href.indexOf('watchplanner-styles.css') !== -1);
             if (found) return true;
             const href = (window.WATCHPLANNER_SERVER_BASE && String(window.WATCHPLANNER_SERVER_BASE).length)
-                ? `${String(window.WATCHPLANNER_SERVER_BASE).replace(/\/$/, '')}/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20261105`
-                : '/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20261105';
+                ? `${String(window.WATCHPLANNER_SERVER_BASE).replace(/\/$/, '')}/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20261108`
+                : '/web/mods/jellyfin-mod-watchplanner-section/watchplanner-styles.css?v=20261108';
             return new Promise((resolve) => {
                 const link = document.createElement('link');
                 link.rel = 'stylesheet';
@@ -314,6 +314,9 @@
                     );
                     if (window.WPUtils && typeof window.WPUtils.addUnplayedCountBadge === 'function') {
                         window.WPUtils.addUnplayedCountBadge(imageContainer, itemEl.dataset.seriesId);
+                    }
+                    if (window.WPUtils && typeof window.WPUtils.addNextEpisodeLabel === 'function') {
+                        window.WPUtils.addNextEpisodeLabel(itemEl, itemEl.dataset.seriesId);
                     }
 
                     // Add image click handler for playback

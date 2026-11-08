@@ -25,7 +25,8 @@ Watchplanner UI for Jellyfin, injected via JavaScript Injector. It adds a weekly
 ### TODO
 
 - Instead of the image being the button, maybe add something similar to what jellyfin uses.
-- Settings modal, not sure what will be included here, for now it's just the delay to change from one day of the week to the next.
+- Settings modal, delay to change from one day of the week to the next, maybe allow the user control how many series can be added per week day -not sure how I will make it look nice on the page-, allow the user to hide the section leaving only the
+  title visible with the icon to make it visible again.
 
 ---
 

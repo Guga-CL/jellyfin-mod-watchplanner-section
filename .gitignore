@@ -2,6 +2,7 @@
 backups
 config/token.txt
 scripts/scaffold.ps1
+notes.md
 Examples
 *.ps1
 *.json
